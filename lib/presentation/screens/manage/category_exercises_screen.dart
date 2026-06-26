@@ -8,6 +8,7 @@ import 'package:cadence/presentation/providers/database_provider.dart';
 import 'package:cadence/presentation/providers/exercises_provider.dart';
 import 'package:cadence/presentation/screens/exercises/edit_exercise_screen.dart';
 import 'package:cadence/presentation/screens/exercises/add_exercise_screen.dart';
+import 'package:cadence/presentation/screens/categories/category_notes_screen.dart';
 
 class CategoryExercisesScreen extends ConsumerWidget {
   const CategoryExercisesScreen({super.key});
@@ -189,6 +190,7 @@ class _CategoryTile extends ConsumerWidget {
                     _handleCategoryMenu(context, ref, v),
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'notes', child: Text('Notes')),
                   PopupMenuItem(
                     value: 'archive',
                     child: Text('Archive',
@@ -238,6 +240,16 @@ class _CategoryTile extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String action) async {
     if (action == 'rename') {
       await _renameCategory(context, ref);
+    } else if (action == 'notes') {
+      final cat = allCategories.where((c) => c.id == categoryId).firstOrNull;
+      if (cat != null && context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CategoryNotesScreen(category: cat),
+          ),
+        );
+      }
     } else if (action == 'archive') {
       await _archiveCategory(context, ref);
     }
