@@ -17,6 +17,7 @@ enum MetronomeSubdivision {
   quarter('Quarter Notes'),
   eighth('Eighth Notes'),
   sixteenth('Sixteenth Notes'),
+  triplet('Triplets'),
   // x/8 compound time (3/8, 6/8, 9/8, 12/8)
   dottedQuarter('Dotted Quarters'),
   compoundEighth('Eighth Notes'),
@@ -78,6 +79,7 @@ enum MetronomeTimeSignature {
           MetronomeSubdivision.quarter,
           MetronomeSubdivision.eighth,
           MetronomeSubdivision.sixteenth,
+          MetronomeSubdivision.triplet,
         ];
       case sig3_8:
         return [
@@ -170,6 +172,13 @@ List<MetronomeTick> buildTickPattern(
         if (i == 0) return t(0.25, BeatLevel.downbeat);
         if (i % 4 == 0) return t(0.25, BeatLevel.beat);
         return t(0.25, BeatLevel.subdivision);
+      });
+
+    case MetronomeSubdivision.triplet:
+      return List.generate(3 * n, (i) {
+        if (i == 0) return t(1 / 3, BeatLevel.downbeat);
+        if (i % 3 == 0) return t(1 / 3, BeatLevel.beat);
+        return t(1 / 3, BeatLevel.subdivision);
       });
 
     // ── Compound x/8: dotted-quarter = 3 eighths ────────────────────────────

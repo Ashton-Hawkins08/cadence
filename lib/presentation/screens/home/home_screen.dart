@@ -38,12 +38,16 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              firstName.isNotEmpty
-                  ? 'Welcome back, $firstName'
-                  : 'Welcome back',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                firstName.isNotEmpty
+                    ? 'Welcome back, $firstName'
+                    : 'Welcome back',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             if (instrument.isNotEmpty)

@@ -9,7 +9,7 @@ class AppConstants {
   static const int bpmSpikeThreshold = 40;
   static const int defaultReminderDays = 3;
   static const int maxReminderDays = 365;
-  static const int maxMinutes = 600;
+  static const int maxMinutes = 300;
   static const int minMinutes = 1;
 
   static const String appName = 'Cadence';

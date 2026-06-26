@@ -110,7 +110,7 @@ class CategoriesScreen extends ConsumerWidget {
                       PopupMenuItem(value: 'rename', child: Text('Rename')),
                       PopupMenuItem(
                           value: 'delete',
-                          child: Text('Delete',
+                          child: Text('Archive',
                               style: TextStyle(color: AppColors.error))),
                     ],
                   ),

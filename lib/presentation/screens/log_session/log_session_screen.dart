@@ -303,7 +303,7 @@ class _LogSessionScreenState extends ConsumerState<LogSessionScreen> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
-                hintText: '1 – 600',
+                hintText: '1 – 300',
                 prefixIcon: Icon(Icons.timer_outlined),
               ),
               validator: (v) {
@@ -326,7 +326,7 @@ class _LogSessionScreenState extends ConsumerState<LogSessionScreen> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
-                hintText: '1 – 500',
+                hintText: '1 – 300',
                 prefixIcon: Icon(Icons.speed_outlined),
               ),
               validator: (v) {

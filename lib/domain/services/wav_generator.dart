@@ -7,13 +7,13 @@ class WavGenerator {
   WavGenerator._();
 
   static Uint8List downbeat() =>
-      _generate(frequency: 1800, durationMs: 22, decay: 100, amplitude: 0.88);
+      _generate(frequency: 2000, durationMs: 12, decay: 260, amplitude: 0.90);
 
   static Uint8List beat() =>
-      _generate(frequency: 1400, durationMs: 18, decay: 110, amplitude: 0.75);
+      _generate(frequency: 1600, durationMs: 10, decay: 300, amplitude: 0.78);
 
   static Uint8List subdivision() =>
-      _generate(frequency: 1050, durationMs: 14, decay: 120, amplitude: 0.55);
+      _generate(frequency: 1200, durationMs: 8, decay: 400, amplitude: 0.58);
 
   static Uint8List _generate({
     required double frequency,
@@ -43,7 +43,7 @@ class WavGenerator {
     _setFourCC(buf, 36, 'data');
     buf.setUint32(40, dataBytes, Endian.little);
 
-    // PCM — clean decaying sine, no harmonics for a crisp click
+    // PCM — clean decaying sine, no harmonics
     for (int i = 0; i < numSamples; i++) {
       final t = i / sampleRate;
       final env = amplitude * exp(-t * decay);

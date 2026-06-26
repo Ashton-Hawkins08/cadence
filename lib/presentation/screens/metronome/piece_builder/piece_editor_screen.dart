@@ -205,6 +205,11 @@ class _PieceEditorScreenState extends ConsumerState<PieceEditorScreen> {
       _save(drafts).then((_) {
         if (!context.mounted) return;
         _pushPlayer(context);
+      }).catchError((_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save before playing.')),
+        );
       });
     } else {
       _pushPlayer(context);

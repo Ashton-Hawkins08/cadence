@@ -17,10 +17,10 @@ class MetronomeState {
   final MetronomeTimeSignature timeSignature;
   final MetronomeSubdivision subdivision;
   final bool accentFirstBeat;
-  // Visual dots — always based on DEFAULT subdivision beat count
-  final int visualBeatIndex;   // which dot is lit (0-based)
-  final int visualTotalBeats;  // total dots to show
-  // Full pattern info (for debugging / piece player)
+  // Visual dots
+  final int visualBeatIndex;
+  final int visualTotalBeats;
+  // Full pattern info (for piece player)
   final int currentTickIndex;
   final int totalTicks;
   final int currentMeasure;
@@ -114,8 +114,8 @@ class _ClickPool {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-int _visualBeatsFor(MetronomeTimeSignature ts) {
-  final pattern = buildTickPattern(ts, ts.defaultSubdivision);
+int _visualBeatsFor(MetronomeTimeSignature ts, MetronomeSubdivision sub) {
+  final pattern = buildTickPattern(ts, sub);
   return pattern.where((t) => t.level != BeatLevel.subdivision).length;
 }
 
@@ -135,8 +135,8 @@ class MetronomeEngine {
   // ── Playback ───────────────────────────────────────────────────────────────
   bool _isPlaying = false;
   bool _isPaused = false;
-  int _tickIndex = 0;       // next tick to fire
-  int _firedTickIndex = 0;  // last tick that fired (for state)
+  int _tickIndex = 0;
+  int _firedTickIndex = 0;
   int _visualBeatIndex = 0;
   int _currentMeasure = 1;
 
@@ -172,7 +172,7 @@ class MetronomeEngine {
 
   void _rebuildPattern() {
     _pattern = buildTickPattern(_timeSignature, _subdivision);
-    _visualTotalBeats = _visualBeatsFor(_timeSignature);
+    _visualTotalBeats = _visualBeatsFor(_timeSignature, _subdivision);
   }
 
   // ── Audio init ─────────────────────────────────────────────────────────────
@@ -276,6 +276,7 @@ class MetronomeEngine {
     _subdivision = sub;
     _rebuildPattern();
     _tickIndex = 0;
+    _visualBeatIndex = 0;
     _emit();
   }
 
@@ -322,26 +323,18 @@ class MetronomeEngine {
     }
 
     final tick = _pattern[_tickIndex];
-
-    // Capture index of the tick about to fire BEFORE advancing
     final firedIndex = _tickIndex;
-
-    // Duration of THIS tick (used for scheduling the next)
     final quarterMs = 60000.0 / _bpm;
     final intervalMs = tick.quarterNoteMultiplier * quarterMs;
 
-    // Play audio
     _playTick(tick.level);
 
-    // Update visual beat index
     if (tick.level == BeatLevel.downbeat) {
       _visualBeatIndex = 0;
     } else if (tick.level == BeatLevel.beat) {
       _visualBeatIndex++;
     }
-    // subdivision ticks don't move the visual dot
 
-    // Advance tick index
     _tickIndex++;
     if (_tickIndex >= _pattern.length) {
       _tickIndex = 0;
@@ -351,7 +344,6 @@ class MetronomeEngine {
     _firedTickIndex = firedIndex;
     _emit(lastFiredLevel: tick.level);
 
-    // Schedule next with drift correction
     _accumulatedMs += intervalMs;
     final now = _stopwatch.elapsedMilliseconds.toDouble();
     final delay = (_accumulatedMs - now).clamp(0.0, intervalMs * 2.5);
