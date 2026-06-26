@@ -143,6 +143,7 @@ class MetronomeEngine {
   // ── Piece mode ─────────────────────────────────────────────────────────────
   List<SectionConfig>? _sections;
   int _sectionIndex = 0;
+  bool _pendingMeasureIncrement = false;
   void Function(int sectionIndex)? onSectionChanged;
   void Function()? onPieceComplete;
 
@@ -216,6 +217,7 @@ class MetronomeEngine {
     _firedTickIndex = 0;
     _visualBeatIndex = 0;
     _currentMeasure = 1;
+    _pendingMeasureIncrement = false;
     _stopwatch.reset();
     _stopwatch.start();
     _accumulatedMs = 0;
@@ -232,6 +234,7 @@ class MetronomeEngine {
     _firedTickIndex = 0;
     _visualBeatIndex = 0;
     _currentMeasure = 1;
+    _pendingMeasureIncrement = false;
     _sections = null;
     _emit();
   }
@@ -309,6 +312,15 @@ class MetronomeEngine {
   void _onTick() {
     if (!_isPlaying || _isPaused) return;
 
+    // Measure increments at the downbeat, not at the end of the previous measure,
+    // so the display always shows the correct measure while it's playing.
+    if (_pendingMeasureIncrement) {
+      _currentMeasure++;
+      _pendingMeasureIncrement = false;
+      _checkSectionTransition();
+      if (!_isPlaying) return;
+    }
+
     final tick = _pattern[_tickIndex];
 
     // Capture index of the tick about to fire BEFORE advancing
@@ -333,8 +345,7 @@ class MetronomeEngine {
     _tickIndex++;
     if (_tickIndex >= _pattern.length) {
       _tickIndex = 0;
-      _currentMeasure++;
-      _checkSectionTransition();
+      _pendingMeasureIncrement = true;
     }
 
     _firedTickIndex = firedIndex;
@@ -355,10 +366,8 @@ class MetronomeEngine {
     if (_currentMeasure > current.endMeasure) {
       final nextIndex = _sectionIndex + 1;
       if (nextIndex >= sections.length) {
-        Timer(Duration.zero, () {
-          stop();
-          onPieceComplete?.call();
-        });
+        stop();
+        onPieceComplete?.call();
         return;
       }
       _sectionIndex = nextIndex;

@@ -7,13 +7,13 @@ class WavGenerator {
   WavGenerator._();
 
   static Uint8List downbeat() =>
-      _generate(frequency: 1050, durationMs: 70, decay: 28, amplitude: 0.85);
+      _generate(frequency: 1800, durationMs: 22, decay: 100, amplitude: 0.88);
 
   static Uint8List beat() =>
-      _generate(frequency: 880, durationMs: 60, decay: 32, amplitude: 0.72);
+      _generate(frequency: 1400, durationMs: 18, decay: 110, amplitude: 0.75);
 
   static Uint8List subdivision() =>
-      _generate(frequency: 700, durationMs: 45, decay: 38, amplitude: 0.55);
+      _generate(frequency: 1050, durationMs: 14, decay: 120, amplitude: 0.55);
 
   static Uint8List _generate({
     required double frequency,
@@ -43,13 +43,13 @@ class WavGenerator {
     _setFourCC(buf, 36, 'data');
     buf.setUint32(40, dataBytes, Endian.little);
 
-    // PCM — decaying sine wave with a subtle 2nd harmonic
+    // PCM — clean decaying sine, no harmonics for a crisp click
     for (int i = 0; i < numSamples; i++) {
       final t = i / sampleRate;
       final env = amplitude * exp(-t * decay);
-      final wave = sin(2 * pi * frequency * t) +
-          0.15 * sin(4 * pi * frequency * t); // 2nd harmonic for click texture
-      final pcm = (env * wave * 32767).round().clamp(-32768, 32767);
+      final pcm = (env * sin(2 * pi * frequency * t) * 32767)
+          .round()
+          .clamp(-32768, 32767);
       buf.setInt16(44 + i * 2, pcm, Endian.little);
     }
 

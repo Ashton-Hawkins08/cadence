@@ -22,12 +22,24 @@ enum MetronomeSubdivision {
   compoundEighth('Eighth Notes'),
   compoundSixteenth('Sixteenth Notes'),
   // 5/8 asymmetrical
-  fiveEight2_3('2+3 Pattern'),
-  fiveEight3_2('3+2 Pattern'),
+  fiveEight2_3('2+3 Eighths'),
+  fiveEight3_2('3+2 Eighths'),
+  fiveEight2_3_beats('2+3 Beats Only'),
+  fiveEight3_2_beats('3+2 Beats Only'),
   // 7/8 asymmetrical
-  sevenEight2_2_3('2+2+3'),
-  sevenEight2_3_2('2+3+2'),
-  sevenEight3_2_2('3+2+2');
+  sevenEight2_2_3('2+2+3 Eighths'),
+  sevenEight2_3_2('2+3+2 Eighths'),
+  sevenEight3_2_2('3+2+2 Eighths'),
+  sevenEight2_2_3_beats('2+2+3 Beats Only'),
+  sevenEight2_3_2_beats('2+3+2 Beats Only'),
+  sevenEight3_2_2_beats('3+2+2 Beats Only'),
+  // 11/8 asymmetrical
+  elevenEight3_3_3_2('3+3+3+2 Eighths'),
+  elevenEight4_3_4('4+3+4 Eighths'),
+  elevenEight2_3_3_3('2+3+3+3 Eighths'),
+  elevenEight3_3_3_2_beats('3+3+3+2 Beats Only'),
+  elevenEight4_3_4_beats('4+3+4 Beats Only'),
+  elevenEight2_3_3_3_beats('2+3+3+3 Beats Only');
 
   final String displayName;
   const MetronomeSubdivision(this.displayName);
@@ -46,6 +58,7 @@ enum MetronomeTimeSignature {
   sig6_8('6/8', 6, 8),
   sig7_8('7/8', 7, 8),
   sig9_8('9/8', 9, 8),
+  sig11_8('11/8', 11, 8),
   sig12_8('12/8', 12, 8);
 
   final String display;
@@ -75,7 +88,9 @@ enum MetronomeTimeSignature {
       case sig5_8:
         return [
           MetronomeSubdivision.fiveEight2_3,
+          MetronomeSubdivision.fiveEight2_3_beats,
           MetronomeSubdivision.fiveEight3_2,
+          MetronomeSubdivision.fiveEight3_2_beats,
         ];
       case sig6_8:
         return [
@@ -86,14 +101,26 @@ enum MetronomeTimeSignature {
       case sig7_8:
         return [
           MetronomeSubdivision.sevenEight2_2_3,
+          MetronomeSubdivision.sevenEight2_2_3_beats,
           MetronomeSubdivision.sevenEight2_3_2,
+          MetronomeSubdivision.sevenEight2_3_2_beats,
           MetronomeSubdivision.sevenEight3_2_2,
+          MetronomeSubdivision.sevenEight3_2_2_beats,
         ];
       case sig9_8:
         return [
           MetronomeSubdivision.dottedQuarter,
           MetronomeSubdivision.compoundEighth,
           MetronomeSubdivision.compoundSixteenth,
+        ];
+      case sig11_8:
+        return [
+          MetronomeSubdivision.elevenEight3_3_3_2,
+          MetronomeSubdivision.elevenEight3_3_3_2_beats,
+          MetronomeSubdivision.elevenEight4_3_4,
+          MetronomeSubdivision.elevenEight4_3_4_beats,
+          MetronomeSubdivision.elevenEight2_3_3_3,
+          MetronomeSubdivision.elevenEight2_3_3_3_beats,
         ];
       case sig12_8:
         return [
@@ -167,29 +194,56 @@ List<MetronomeTick> buildTickPattern(
 
     // ── 5/8 asymmetrical ────────────────────────────────────────────────────
     case MetronomeSubdivision.fiveEight2_3:
-      // groups: [0,1] [2,3,4]
-      return List.generate(
-          5, (i) => t(0.5, levelFor(i, [2])));
+      return List.generate(5, (i) => t(0.5, levelFor(i, [2])));
 
     case MetronomeSubdivision.fiveEight3_2:
-      // groups: [0,1,2] [3,4]
-      return List.generate(
-          5, (i) => t(0.5, levelFor(i, [3])));
+      return List.generate(5, (i) => t(0.5, levelFor(i, [3])));
+
+    case MetronomeSubdivision.fiveEight2_3_beats:
+      return [t(1.0, BeatLevel.downbeat), t(1.5, BeatLevel.beat)];
+
+    case MetronomeSubdivision.fiveEight3_2_beats:
+      return [t(1.5, BeatLevel.downbeat), t(1.0, BeatLevel.beat)];
 
     // ── 7/8 asymmetrical ────────────────────────────────────────────────────
     case MetronomeSubdivision.sevenEight2_2_3:
-      // groups: [0,1] [2,3] [4,5,6]
-      return List.generate(
-          7, (i) => t(0.5, levelFor(i, [2, 4])));
+      return List.generate(7, (i) => t(0.5, levelFor(i, [2, 4])));
 
     case MetronomeSubdivision.sevenEight2_3_2:
-      // groups: [0,1] [2,3,4] [5,6]
-      return List.generate(
-          7, (i) => t(0.5, levelFor(i, [2, 5])));
+      return List.generate(7, (i) => t(0.5, levelFor(i, [2, 5])));
 
     case MetronomeSubdivision.sevenEight3_2_2:
-      // groups: [0,1,2] [3,4] [5,6]
-      return List.generate(
-          7, (i) => t(0.5, levelFor(i, [3, 5])));
+      return List.generate(7, (i) => t(0.5, levelFor(i, [3, 5])));
+
+    case MetronomeSubdivision.sevenEight2_2_3_beats:
+      return [t(1.0, BeatLevel.downbeat), t(1.0, BeatLevel.beat), t(1.5, BeatLevel.beat)];
+
+    case MetronomeSubdivision.sevenEight2_3_2_beats:
+      return [t(1.0, BeatLevel.downbeat), t(1.5, BeatLevel.beat), t(1.0, BeatLevel.beat)];
+
+    case MetronomeSubdivision.sevenEight3_2_2_beats:
+      return [t(1.5, BeatLevel.downbeat), t(1.0, BeatLevel.beat), t(1.0, BeatLevel.beat)];
+
+    // ── 11/8 asymmetrical ───────────────────────────────────────────────────
+    case MetronomeSubdivision.elevenEight3_3_3_2:
+      // groups: [0,1,2] [3,4,5] [6,7,8] [9,10]
+      return List.generate(11, (i) => t(0.5, levelFor(i, [3, 6, 9])));
+
+    case MetronomeSubdivision.elevenEight4_3_4:
+      // groups: [0,1,2,3] [4,5,6] [7,8,9,10]
+      return List.generate(11, (i) => t(0.5, levelFor(i, [4, 7])));
+
+    case MetronomeSubdivision.elevenEight2_3_3_3:
+      // groups: [0,1] [2,3,4] [5,6,7] [8,9,10]
+      return List.generate(11, (i) => t(0.5, levelFor(i, [2, 5, 8])));
+
+    case MetronomeSubdivision.elevenEight3_3_3_2_beats:
+      return [t(1.5, BeatLevel.downbeat), t(1.5, BeatLevel.beat), t(1.5, BeatLevel.beat), t(1.0, BeatLevel.beat)];
+
+    case MetronomeSubdivision.elevenEight4_3_4_beats:
+      return [t(2.0, BeatLevel.downbeat), t(1.5, BeatLevel.beat), t(2.0, BeatLevel.beat)];
+
+    case MetronomeSubdivision.elevenEight2_3_3_3_beats:
+      return [t(1.0, BeatLevel.downbeat), t(1.5, BeatLevel.beat), t(1.5, BeatLevel.beat), t(1.5, BeatLevel.beat)];
   }
 }

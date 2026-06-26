@@ -431,19 +431,31 @@ class SettingsScreen extends ConsumerWidget {
   static const _helpItems = [
     (
       'Logging a Session',
-      'Tap Log in the bottom nav. Pick an exercise, enter minutes and BPM, add an optional note, then confirm. Your streak and stats update automatically.'
+      'Tap Log in the bottom nav. Pick an exercise, enter duration and BPM, add an optional note, then confirm. Your streak and stats update automatically.'
     ),
     (
-      'Exercises',
-      'Add exercises from the Manage menu. Each exercise can have a BPM goal — set a starting and target BPM to track your progress percentage.'
-    ),
-    (
-      'Categories',
-      'Group exercises into categories for better organization. Access from the Manage menu. Deleting a category archives all its exercises as a bundle.'
+      'Exercises & Categories',
+      'Add exercises from the Manage menu (pen icon). Each exercise can have a BPM goal — set a starting and target BPM to track your progress percentage. Group exercises into categories for better organization.'
     ),
     (
       'Archive',
-      'Archived exercises are removed from your active list but never deleted. Restore or permanently delete them from the Archive section in Manage.'
+      'Archiving removes an item from your active list without deleting it. To archive a piece or exercise, tap the three-dot menu and choose Archive. To restore or permanently delete, go to Archive in the Manage menu. Deleting a category archives all its exercises together as a bundle.'
+    ),
+    (
+      'Standard Metronome',
+      'Tap the metronome icon on the home screen. Use the +/- buttons or drag the BPM display to set tempo. Tap Tap Tempo to match a live tempo. Switch time signatures and subdivisions with the pickers below. The accent toggle controls whether beat 1 is emphasized.'
+    ),
+    (
+      'Piece Builder',
+      'Build a multi-section piece from the Pieces tab inside the metronome. Each section has its own BPM, time signature, and measure range. Tap the play button on a piece to run it — the metronome automatically transitions between sections and shows your position in the timeline.'
+    ),
+    (
+      'Compound & Asymmetric Time Signatures',
+      '5/8 and 7/8 group eighth notes into beats (e.g. 2+3 or 2+2+3). "Eighths" mode clicks every eighth note. "Beats Only" mode clicks only the group onsets — useful for internalizing the pulse without subdivisions. 11/8 works the same way with three grouping options (3+3+3+2, 4+3+4, 2+3+3+3).'
+    ),
+    (
+      'Calendar',
+      'The calendar shows your practice days at a glance. Green dots mark logged sessions. Tap a day to see what you practiced. Use the Create Event button to schedule a future practice.'
     ),
     (
       'Streak',
@@ -455,7 +467,7 @@ class SettingsScreen extends ConsumerWidget {
     ),
     (
       'Reminders',
-      'The home screen shows exercises you haven\'t practiced recently, based on each exercise\'s reminder days setting.'
+      'The home screen flags exercises you haven\'t touched recently. Each exercise has its own reminder threshold — set it when editing the exercise.'
     ),
   ];
 }

@@ -37,7 +37,9 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
           PieceListScreen(),
         ],
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
         height: 64,
         color: navBg,
         child: Row(
@@ -86,6 +88,7 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

@@ -109,8 +109,9 @@ class _ManageSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+    return SafeArea(
+      child: Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(20),
@@ -164,6 +165,7 @@ class _ManageSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
+      ),
       ),
     );
   }

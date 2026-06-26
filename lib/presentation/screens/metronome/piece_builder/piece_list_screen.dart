@@ -213,18 +213,6 @@ class _PieceOptions extends ConsumerWidget {
                 }
               },
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(Icons.delete_outline, color: AppColors.error),
-              title: Text('Delete',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: AppColors.error)),
-              onTap: () async {
-                onClose();
-                final confirm = await _showDeleteConfirm(context, piece.title);
-                if (confirm == true) await repo.delete(piece.id);
-              },
-            ),
           ],
         ),
       ),
