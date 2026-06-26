@@ -91,6 +91,7 @@ class _ClickPool {
   Future<void> init(String path) async {
     _path = path;
     for (final p in _players) {
+      await p.setPlayerMode(PlayerMode.lowLatency);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setSource(DeviceFileSource(path));
     }
@@ -102,6 +103,7 @@ class _ClickPool {
     final p = _players[_index % _poolSize];
     _index++;
     p.setVolume(volume);
+    p.stop();
     p.resume();
   }
 
