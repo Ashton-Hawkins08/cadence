@@ -6,6 +6,7 @@ import 'package:cadence/domain/validators/name_validator.dart';
 import 'package:cadence/presentation/providers/categories_provider.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
 import 'package:cadence/presentation/providers/exercises_provider.dart';
+import 'package:cadence/presentation/screens/categories/category_notes_screen.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
@@ -102,12 +103,21 @@ class CategoriesScreen extends ConsumerWidget {
                     onSelected: (action) {
                       if (action == 'rename') {
                         _showRenameDialog(context, ref, cat);
+                      } else if (action == 'notes') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CategoryNotesScreen(category: cat),
+                          ),
+                        );
                       } else if (action == 'delete') {
                         _showDeleteDialog(context, ref, cat);
                       }
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'rename', child: Text('Rename')),
+                      PopupMenuItem(value: 'notes', child: Text('Notes')),
                       PopupMenuItem(
                           value: 'delete',
                           child: Text('Archive',

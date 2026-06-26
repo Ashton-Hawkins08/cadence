@@ -13,11 +13,13 @@ import 'package:intl/intl.dart';
 class EditExerciseScreen extends ConsumerStatefulWidget {
   final Exercise exercise;
   final List<Category> categories;
+  final int initialTabIndex;
 
   const EditExerciseScreen({
     super.key,
     required this.exercise,
     required this.categories,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -39,7 +41,7 @@ class _EditExerciseScreenState extends ConsumerState<EditExerciseScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
     final ex = widget.exercise;
     _nameCtrl = TextEditingController(text: ex.name);
     _reminderCtrl = TextEditingController(text: ex.reminderDays.toString());

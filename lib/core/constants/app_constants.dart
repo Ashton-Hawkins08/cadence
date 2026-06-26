@@ -31,5 +31,6 @@ class AppConstants {
   static const String keyFirstName = 'first_name';
   static const String keyLastName = 'last_name';
   static const String keyOnboardingComplete = 'onboarding_complete';
+  static const String keyTutorialComplete = 'tutorial_complete';
   static const String keyThemeMode = 'theme_mode';
 }

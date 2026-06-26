@@ -171,4 +171,35 @@ class CategoryRepository {
   Future<void> deleteAllBundles() {
     return _db.delete(_db.archivedCategoryBundles).go();
   }
+
+  // ── Category Notes ────────────────────────────────────────────────────────
+
+  Stream<List<CategoryNote>> watchNotes(int categoryId) {
+    return (_db.select(_db.categoryNotes)
+          ..where((n) => n.categoryId.equals(categoryId))
+          ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+        .watch();
+  }
+
+  Future<void> addNote(int categoryId, String text) {
+    return _db.into(_db.categoryNotes).insert(
+          CategoryNotesCompanion.insert(
+            categoryId: categoryId,
+            noteText: text,
+            createdAt: DateTime.now(),
+          ),
+        );
+  }
+
+  Future<void> deleteNote(int noteId) {
+    return (_db.delete(_db.categoryNotes)
+          ..where((n) => n.id.equals(noteId)))
+        .go();
+  }
+
+  Future<void> deleteNotesForCategory(int categoryId) {
+    return (_db.delete(_db.categoryNotes)
+          ..where((n) => n.categoryId.equals(categoryId)))
+        .go();
+  }
 }

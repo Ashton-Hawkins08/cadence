@@ -42,6 +42,13 @@ class ExerciseNotes extends Table {
   DateTimeColumn get createdAt => dateTime()();
 }
 
+class CategoryNotes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get categoryId => integer()();
+  TextColumn get noteText => text().withLength(max: 300)();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 class HistoryEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get exerciseId => integer().nullable()();
@@ -112,6 +119,7 @@ class PieceSections extends Table {
   Exercises,
   BpmLogs,
   ExerciseNotes,
+  CategoryNotes,
   HistoryEntries,
   ArchivedCategoryBundles,
   CalendarEvents,
@@ -123,7 +131,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -139,6 +147,9 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await m.addColumn(metronomePieces, metronomePieces.isArchived);
             await m.addColumn(pieceSections, pieceSections.accentFirstBeat);
+          }
+          if (from < 5) {
+            await m.createTable(categoryNotes);
           }
         },
       );

@@ -10,3 +10,8 @@ final archivedCategoryBundlesProvider =
     StreamProvider<List<ArchivedCategoryBundle>>((ref) {
   return ref.watch(categoryRepositoryProvider).watchArchived();
 });
+
+final categoryNotesProvider =
+    StreamProvider.family<List<CategoryNote>, int>((ref, categoryId) {
+  return ref.watch(categoryRepositoryProvider).watchNotes(categoryId);
+});

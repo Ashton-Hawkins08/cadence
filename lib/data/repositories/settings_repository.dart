@@ -134,6 +134,16 @@ class SettingsRepository {
     await prefs.setBool(AppConstants.keyOnboardingComplete, true);
   }
 
+  Future<bool> isTutorialComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(AppConstants.keyTutorialComplete) ?? false;
+  }
+
+  Future<void> completeTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AppConstants.keyTutorialComplete, true);
+  }
+
   // ── Streak ────────────────────────────────────────────────────────────────
 
   Future<StreakState> loadStreak() async {

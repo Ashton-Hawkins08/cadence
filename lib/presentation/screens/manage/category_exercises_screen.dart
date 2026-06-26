@@ -397,6 +397,8 @@ class _ExerciseTile extends ConsumerWidget {
             PopupMenuItem(
                 value: 'edit', child: Text('Edit')),
             PopupMenuItem(
+                value: 'notes', child: Text('Notes')),
+            PopupMenuItem(
                 value: 'switch', child: Text('Switch Category')),
             PopupMenuItem(
                 value: 'rename', child: Text('Change Name')),
@@ -421,6 +423,17 @@ class _ExerciseTile extends ConsumerWidget {
             builder: (_) => EditExerciseScreen(
               exercise: exercise,
               categories: allCategories,
+            ),
+          ),
+        );
+      case 'notes':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EditExerciseScreen(
+              exercise: exercise,
+              categories: allCategories,
+              initialTabIndex: 1,
             ),
           ),
         );
