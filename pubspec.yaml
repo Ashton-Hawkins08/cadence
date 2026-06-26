@@ -1,0 +1,51 @@
+name: cadence
+description: Cadence — Complete Musician Hub
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Database
+  drift: ^2.18.0
+  drift_flutter: ^0.2.0
+
+  # State management
+  flutter_riverpod: ^2.5.0
+
+  # Local storage for streak + settings
+  shared_preferences: ^2.3.0
+
+  # Smooth screen transitions
+  animations: ^2.0.11
+
+  # Typography
+  google_fonts: ^6.2.1
+
+  # Date formatting
+  intl: ^0.20.0
+
+  # File path for database location
+  path_provider: ^2.1.3
+
+  # Metronome audio
+  audioplayers: ^6.0.0
+  device_preview: ^1.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.12
+  drift_dev: ^2.18.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
