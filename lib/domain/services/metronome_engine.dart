@@ -90,8 +90,12 @@ class _ClickPool {
 
   Future<void> init(String path) async {
     _path = path;
+    const ctx = AudioContext(
+      android: AudioContextAndroid(audioFocus: AndroidAudioFocus.none),
+    );
     for (final p in _players) {
       await p.setPlayerMode(PlayerMode.lowLatency);
+      await p.setAudioContext(ctx);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setSource(DeviceFileSource(path));
     }
