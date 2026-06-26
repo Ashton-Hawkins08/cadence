@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cadence/core/constants/app_constants.dart';
 import 'package:cadence/core/constants/metronome_constants.dart';
@@ -78,7 +79,7 @@ class SectionConfig {
   });
 }
 
-// ── Audio click pool ──────────────────────────────────────────────────────────
+// ── Audio click pool (Windows / desktop) ─────────────────────────────────────
 
 class _ClickPool {
   static const _poolSize = 3;
@@ -90,12 +91,7 @@ class _ClickPool {
 
   Future<void> init(String path) async {
     _path = path;
-    final ctx = AudioContext(
-      android: AudioContextAndroid(audioFocus: AndroidAudioFocus.none),
-    );
     for (final p in _players) {
-      await p.setPlayerMode(PlayerMode.lowLatency);
-      await p.setAudioContext(ctx);
       await p.setReleaseMode(ReleaseMode.stop);
       await p.setSource(DeviceFileSource(path));
     }
@@ -107,7 +103,6 @@ class _ClickPool {
     final p = _players[_index % _poolSize];
     _index++;
     p.setVolume(volume);
-    p.stop();
     p.resume();
   }
 
@@ -115,6 +110,28 @@ class _ClickPool {
     for (final p in _players) {
       await p.dispose();
     }
+  }
+}
+
+// ── Native SoundPool channel (Android) ───────────────────────────────────────
+
+class _NativePool {
+  static const _ch = MethodChannel('cadence/metronome');
+  bool _ready = false;
+
+  Future<void> init(Map<String, String> paths) async {
+    await _ch.invokeMethod<void>('init', paths);
+    _ready = true;
+  }
+
+  void play(String sound, {double volume = 1.0}) {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('play', {'sound': sound, 'volume': volume});
+  }
+
+  Future<void> dispose() async {
+    await _ch.invokeMethod<void>('dispose');
+    _ready = false;
   }
 }
 
@@ -160,6 +177,9 @@ class MetronomeEngine {
 
   // ── Audio ──────────────────────────────────────────────────────────────────
   bool _audioReady = false;
+  // Android: direct SoundPool via native channel
+  final _native = _NativePool();
+  // Windows/desktop: audioplayers click pools
   final _downbeat = _ClickPool();
   final _beat = _ClickPool();
   final _sub = _ClickPool();
@@ -197,9 +217,17 @@ class MetronomeEngine {
       await d.writeAsBytes(WavGenerator.downbeat());
       await b.writeAsBytes(WavGenerator.beat());
       await s.writeAsBytes(WavGenerator.subdivision());
-      await _downbeat.init(d.path);
-      await _beat.init(b.path);
-      await _sub.init(s.path);
+      if (Platform.isAndroid) {
+        await _native.init({
+          'downbeat': d.path,
+          'beat': b.path,
+          'sub': s.path,
+        });
+      } else {
+        await _downbeat.init(d.path);
+        await _beat.init(b.path);
+        await _sub.init(s.path);
+      }
       _audioReady = true;
       _emit();
     } catch (_) {
@@ -390,13 +418,24 @@ class MetronomeEngine {
     if (level == BeatLevel.downbeat && !_accentFirstBeat) {
       effective = BeatLevel.beat;
     }
-    switch (effective) {
-      case BeatLevel.downbeat:
-        _downbeat.fire();
-      case BeatLevel.beat:
-        _beat.fire();
-      case BeatLevel.subdivision:
-        _sub.fire(volume: 0.6);
+    if (Platform.isAndroid) {
+      switch (effective) {
+        case BeatLevel.downbeat:
+          _native.play('downbeat');
+        case BeatLevel.beat:
+          _native.play('beat');
+        case BeatLevel.subdivision:
+          _native.play('sub', volume: 0.6);
+      }
+    } else {
+      switch (effective) {
+        case BeatLevel.downbeat:
+          _downbeat.fire();
+        case BeatLevel.beat:
+          _beat.fire();
+        case BeatLevel.subdivision:
+          _sub.fire(volume: 0.6);
+      }
     }
   }
 
@@ -422,8 +461,12 @@ class MetronomeEngine {
   Future<void> dispose() async {
     stop();
     await _ctrl.close();
-    await _downbeat.dispose();
-    await _beat.dispose();
-    await _sub.dispose();
+    if (Platform.isAndroid) {
+      await _native.dispose();
+    } else {
+      await _downbeat.dispose();
+      await _beat.dispose();
+      await _sub.dispose();
+    }
   }
 }
