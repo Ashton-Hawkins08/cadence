@@ -90,7 +90,7 @@ class _ClickPool {
 
   Future<void> init(String path) async {
     _path = path;
-    const ctx = AudioContext(
+    final ctx = AudioContext(
       android: AudioContextAndroid(audioFocus: AndroidAudioFocus.none),
     );
     for (final p in _players) {
