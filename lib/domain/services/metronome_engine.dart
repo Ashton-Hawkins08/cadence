@@ -89,20 +89,25 @@ class _ClickPool {
   String? _path;
   bool _ready = false;
 
-  Future<void> init(String path) async {
+  Future<void> init(String path, {double volume = 1.0}) async {
     _path = path;
     for (final p in _players) {
+      await p.setPlayerMode(PlayerMode.lowLatency);
       await p.setReleaseMode(ReleaseMode.stop);
+      await p.setVolume(volume); // set once — never changes per-beat
       await p.setSource(DeviceFileSource(path));
     }
     _ready = true;
   }
 
-  void fire({double volume = 1.0}) {
+  // One platform channel call per beat (stop resets position; resume plays).
+  // stop() before resume() guards against silent failures when the Windows
+  // audio thread races with incoming completion events (threading warning).
+  void fire() {
     if (!_ready || _path == null) return;
     final p = _players[_index % _poolSize];
     _index++;
-    p.setVolume(volume);
+    p.stop();
     p.resume();
   }
 
@@ -226,7 +231,7 @@ class MetronomeEngine {
       } else {
         await _downbeat.init(d.path);
         await _beat.init(b.path);
-        await _sub.init(s.path);
+        await _sub.init(s.path, volume: 0.6);
       }
       _audioReady = true;
       _emit();
@@ -286,9 +291,9 @@ class MetronomeEngine {
     if (!_isPaused) return;
     _isPaused = false;
     _stopwatch.start();
-    final now = _stopwatch.elapsedMilliseconds.toDouble();
-    final delay = (_accumulatedMs - now).clamp(0.0, 2000.0);
-    _timer = Timer(Duration(milliseconds: delay.round()), _onTick);
+    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    final delayMs = (_accumulatedMs - nowMs).clamp(0.0, 2000.0);
+    _timer = Timer(Duration(microseconds: (delayMs * 1000).round()), _onTick);
     _emit();
   }
 
@@ -384,9 +389,9 @@ class MetronomeEngine {
     _emit(lastFiredLevel: tick.level);
 
     _accumulatedMs += intervalMs;
-    final now = _stopwatch.elapsedMilliseconds.toDouble();
-    final delay = (_accumulatedMs - now).clamp(0.0, intervalMs * 2.5);
-    _timer = Timer(Duration(milliseconds: delay.round()), _onTick);
+    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    final delayMs = (_accumulatedMs - nowMs).clamp(0.0, intervalMs * 2.5);
+    _timer = Timer(Duration(microseconds: (delayMs * 1000).round()), _onTick);
   }
 
   void _checkSectionTransition() {
@@ -439,7 +444,7 @@ class MetronomeEngine {
         case BeatLevel.beat:
           _beat.fire();
         case BeatLevel.subdivision:
-          _sub.fire(volume: 0.6);
+          _sub.fire();
       }
     }
   }
