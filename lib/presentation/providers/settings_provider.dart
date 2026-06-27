@@ -71,6 +71,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await exerciseRepo.deleteAllBpmLogs();
     await exerciseRepo.deleteAllNotes();
     await exerciseRepo.deleteAll();
+    await categoryRepo.deleteAllCategoryNotes();
     await categoryRepo.deleteAll();
     await categoryRepo.deleteAllBundles();
     await historyRepo.deleteAll();

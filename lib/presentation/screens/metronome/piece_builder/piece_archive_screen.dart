@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/data/database/app_database.dart';
-import 'package:cadence/data/repositories/piece_repository.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
 import 'package:cadence/presentation/providers/piece_provider.dart';
 

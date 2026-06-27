@@ -270,6 +270,7 @@ class MetronomeEngine {
     _currentMeasure = 1;
     _pendingMeasureIncrement = false;
     _sections = null;
+    _tapTimes.clear();
     _emit();
   }
 
@@ -321,6 +322,10 @@ class MetronomeEngine {
 
   void tapTempo() {
     final now = DateTime.now().millisecondsSinceEpoch;
+    // Gap > 3 s means the user is starting a new tempo tap sequence.
+    if (_tapTimes.isNotEmpty && now - _tapTimes.last > 3000) {
+      _tapTimes.clear();
+    }
     _tapTimes.add(now);
     if (_tapTimes.length > 8) _tapTimes.removeAt(0);
     if (_tapTimes.length >= 2) {

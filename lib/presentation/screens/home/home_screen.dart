@@ -26,8 +26,6 @@ class HomeScreen extends ConsumerWidget {
     final calendarReminders = ref.watch(calendarRemindersProvider);
     final history = ref.watch(historyProvider).valueOrNull ?? [];
     final avgBpm = ref.watch(overallAvgBpmProvider).valueOrNull;
-    final hasReminders =
-        practiceReminders.isNotEmpty || calendarReminders.isNotEmpty;
 
     final firstName = settings?.firstName ?? '';
     final instrument = settings?.instrument ?? '';
@@ -223,49 +221,84 @@ class HomeScreen extends ConsumerWidget {
           ),
 
           // ── Recent Sessions ─────────────────────────────────────────────────
-          if (history.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 10),
-              child: Text(
-                'Recent Sessions',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              'Recent Sessions',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          if (history.isEmpty)
+            Card(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 16,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'No recent exercises',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            ...history.take(3).map((h) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _RecentSessionCard(entry: h),
-                )),
-          ],
+          ...history.take(3).map((h) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _RecentSessionCard(entry: h),
+              )),
 
           // ── Reminders ───────────────────────────────────────────────────────
-          if (hasReminders) ...[
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                'Reminders',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Text(
+              'Reminders',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
-            _ReminderBox(
-              icon: Icons.music_note_outlined,
-              title: 'Practice Reminders',
-              itemWidgets: practiceReminders
-                  .map((r) => _PracticeReminderRow(item: r))
-                  .toList(),
+          ),
+          _ReminderBox(
+            icon: Icons.music_note_outlined,
+            title: 'Practice Reminders',
+            emptyMessage: 'No urgent reminders for practices',
+            itemWidgets: practiceReminders
+                .map((r) => _PracticeReminderRow(item: r))
+                .toList(),
+            onViewAll: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const _PracticeRemindersScreen()),
             ),
-            const SizedBox(height: 10),
-            _ReminderBox(
-              icon: Icons.event_outlined,
-              title: 'Calendar Reminders',
-              itemWidgets: calendarReminders
-                  .map((r) => _CalendarReminderRow(item: r))
-                  .toList(),
+          ),
+          const SizedBox(height: 10),
+          _ReminderBox(
+            icon: Icons.event_outlined,
+            title: 'Calendar Reminders',
+            emptyMessage: 'No reminders on the calendar',
+            itemWidgets: calendarReminders
+                .map((r) => _CalendarReminderRow(item: r))
+                .toList(),
+            onViewAll: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const _CalendarRemindersScreen()),
             ),
-          ],
+          ),
 
           const SizedBox(height: 24),
         ],
@@ -274,92 +307,91 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ── Reminder box (expandable card) ────────────────────────────────────────────
+// ── Reminder box ──────────────────────────────────────────────────────────────
 
-class _ReminderBox extends StatefulWidget {
+class _ReminderBox extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String emptyMessage;
   final List<Widget> itemWidgets;
+  final VoidCallback onViewAll;
 
   const _ReminderBox({
     required this.icon,
     required this.title,
     required this.itemWidgets,
+    required this.onViewAll,
+    this.emptyMessage = 'All caught up!',
   });
-
-  @override
-  State<_ReminderBox> createState() => _ReminderBoxState();
-}
-
-class _ReminderBoxState extends State<_ReminderBox> {
-  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
-    final count = widget.itemWidgets.length;
-    final hasMore = count > 1;
+    final count = itemWidgets.length;
 
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-            child: Row(
-              children: [
-                Icon(widget.icon, size: 18, color: primary),
-                const SizedBox(width: 8),
-                Text(
-                  widget.title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                if (count > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
+          // Header — always tappable to view full list
+          InkWell(
+            onTap: onViewAll,
+            borderRadius: count == 0
+                ? BorderRadius.circular(12)
+                : const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    child: Text(
-                      '$count',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: primary,
-                        fontWeight: FontWeight.w700,
+                  ),
+                  const Spacer(),
+                  if (count > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
                   ),
-              ],
+                ],
+              ),
             ),
           ),
 
-          // Most urgent item — always shown
-          if (count > 0) widget.itemWidgets.first,
-
-          // Remaining items — shown when expanded
-          if (_expanded && count > 1) ...[
-            Divider(
-              height: 1,
-              indent: 16,
-              endIndent: 16,
-              color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
-            ),
-            ...widget.itemWidgets.skip(1),
-          ],
+          // Most urgent item — always shown when available
+          if (count > 0) itemWidgets.first,
 
           // Empty state
           if (count == 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: Text(
-                'All caught up!',
+                emptyMessage,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.darkTextSecondary
@@ -368,8 +400,8 @@ class _ReminderBoxState extends State<_ReminderBox> {
               ),
             ),
 
-          // See all / See less toggle
-          if (hasMore) ...[
+          // View all — shown when more than one reminder
+          if (count > 1) ...[
             Divider(
               height: 1,
               indent: 16,
@@ -377,7 +409,7 @@ class _ReminderBoxState extends State<_ReminderBox> {
               color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
             ),
             InkWell(
-              onTap: () => setState(() => _expanded = !_expanded),
+              onTap: onViewAll,
               borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(12)),
               child: Padding(
@@ -386,20 +418,14 @@ class _ReminderBoxState extends State<_ReminderBox> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _expanded
-                          ? 'Show less'
-                          : 'See all $count reminders',
+                      'View all $count reminders',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
-                      color: primary,
-                    ),
+                    Icon(Icons.arrow_forward, size: 14, color: primary),
                   ],
                 ),
               ),
@@ -647,6 +673,132 @@ class _StatItem extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+}
+
+// ── Practice reminders screen ─────────────────────────────────────────────────
+
+class _PracticeRemindersScreen extends ConsumerWidget {
+  const _PracticeRemindersScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final items = ref.watch(practiceRemindersProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Practice Reminders',
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        backgroundColor:
+            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        elevation: 0,
+      ),
+      backgroundColor:
+          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      body: items.isEmpty
+          ? const _RemindersEmptyState(
+              icon: Icons.music_note_outlined,
+              message: 'No practice reminders right now.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => Card(
+                child: _PracticeReminderRow(item: items[i]),
+              ),
+            ),
+    );
+  }
+}
+
+// ── Calendar reminders screen ─────────────────────────────────────────────────
+
+class _CalendarRemindersScreen extends ConsumerWidget {
+  const _CalendarRemindersScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final items = ref.watch(calendarRemindersProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Calendar Reminders',
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        backgroundColor:
+            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        elevation: 0,
+      ),
+      backgroundColor:
+          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      body: items.isEmpty
+          ? const _RemindersEmptyState(
+              icon: Icons.event_outlined,
+              message: 'No calendar reminders right now.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => Card(
+                child: _CalendarReminderRow(item: items[i]),
+              ),
+            ),
+    );
+  }
+}
+
+// ── Shared reminders empty state ──────────────────────────────────────────────
+
+class _RemindersEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _RemindersEmptyState({
+    required this.icon,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 56,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : AppColors.lightTextSecondary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'All caught up!',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.lightTextSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

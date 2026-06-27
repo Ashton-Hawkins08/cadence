@@ -509,19 +509,14 @@ class _StatsCard extends ConsumerWidget {
     final streakAsync = ref.watch(streakProvider);
     final streak = streakAsync.valueOrNull;
 
-    final totalSessions =
-        exercises.fold<int>(0, (sum, e) => sum + e.timesPracticed);
-    final totalMinutes =
-        exercises.fold<int>(0, (sum, e) => sum + e.totalMinutes);
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             _Row('Exercises tracked', exercises.length.toString()),
-            _Row('Total sessions logged', totalSessions.toString()),
-            _Row('Total minutes practiced', totalMinutes.toString()),
+            _Row('Total sessions logged', settings.totalSessions.toString()),
+            _Row('Total minutes practiced', settings.totalMinutes.toString()),
             _Row('Recent sessions shown', history.length.toString()),
             if (streak != null) ...[
               _Row('Current streak', '${streak.current} day(s)'),

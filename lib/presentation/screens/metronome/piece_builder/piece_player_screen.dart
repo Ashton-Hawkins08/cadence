@@ -42,7 +42,10 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
   void dispose() {
     _stateSub?.cancel();
     _flashCtrl.dispose();
-    ref.read(metronomeEngineProvider).stop();
+    final engine = ref.read(metronomeEngineProvider);
+    engine.onSectionChanged = null;
+    engine.onPieceComplete = null;
+    engine.stop();
     super.dispose();
   }
 
@@ -70,8 +73,9 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
     engine.start(sections: _configs);
 
     _stateSub?.cancel();
+    // Only drive the flash animation here; _activeSectionIndex is updated
+    // by onSectionChanged so we don't need setState on every tick.
     _stateSub = engine.stateStream.listen((s) {
-      setState(() => _activeSectionIndex = engine.currentSectionIndex);
       if (s.lastFiredLevel != null && s.visualBeatIndex != _lastVisualBeat) {
         _lastVisualBeat = s.visualBeatIndex;
         _flashCtrl.forward(from: 0);
@@ -93,7 +97,9 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
       data: (sections) {
         if (_configs == null && sections.isNotEmpty) {
           WidgetsBinding.instance
-              .addPostFrameCallback((_) => _buildConfigsAndPlay(sections));
+              .addPostFrameCallback((_) {
+            if (mounted) _buildConfigsAndPlay(sections);
+          });
         }
         return Scaffold(
           backgroundColor:

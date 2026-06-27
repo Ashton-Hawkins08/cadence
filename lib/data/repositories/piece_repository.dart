@@ -91,12 +91,14 @@ class PieceRepository {
 
   Future<void> replaceSections(
       int pieceId, List<PieceSectionsCompanion> sections) async {
-    await (_db.delete(_db.pieceSections)
-          ..where((s) => s.pieceId.equals(pieceId)))
-        .go();
-    for (final s in sections) {
-      await _db.into(_db.pieceSections).insert(s);
-    }
+    await _db.transaction(() async {
+      await (_db.delete(_db.pieceSections)
+            ..where((s) => s.pieceId.equals(pieceId)))
+          .go();
+      for (final s in sections) {
+        await _db.into(_db.pieceSections).insert(s);
+      }
+    });
     await touchModified(pieceId);
   }
 

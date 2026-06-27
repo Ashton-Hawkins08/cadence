@@ -19,6 +19,7 @@ class _StandardMetronomeScreenState
     extends ConsumerState<StandardMetronomeScreen>
     with SingleTickerProviderStateMixin {
   final _bpmController = TextEditingController();
+  final _bpmFocus = FocusNode();
   bool _editingBpm = false;
 
   late AnimationController _flashCtrl;
@@ -33,6 +34,12 @@ class _StandardMetronomeScreenState
         vsync: this, duration: const Duration(milliseconds: 90));
     _flashAnim = Tween<double>(begin: 1.0, end: 1.55).animate(
         CurvedAnimation(parent: _flashCtrl, curve: Curves.easeOut));
+    // Reset _editingBpm when focus leaves the field (e.g. back-button dismiss).
+    _bpmFocus.addListener(() {
+      if (!_bpmFocus.hasFocus && _editingBpm) {
+        setState(() => _editingBpm = false);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _listenFlash());
   }
 
@@ -50,6 +57,7 @@ class _StandardMetronomeScreenState
   void dispose() {
     _stateSub?.cancel();
     _bpmController.dispose();
+    _bpmFocus.dispose();
     _flashCtrl.dispose();
     super.dispose();
   }
@@ -100,6 +108,7 @@ class _StandardMetronomeScreenState
                   width: 180,
                   child: TextField(
                     controller: _bpmController,
+                    focusNode: _bpmFocus,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,

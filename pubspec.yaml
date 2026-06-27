@@ -36,7 +36,6 @@ dependencies:
 
   # Metronome audio
   audioplayers: ^6.0.0
-  device_preview: ^1.3.1
 
 dev_dependencies:
   flutter_test:

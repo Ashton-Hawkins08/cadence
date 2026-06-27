@@ -83,6 +83,7 @@ class CategoryRepository {
       categoryId: Value(null),
     ));
 
+    await deleteNotesForCategory(categoryId);
     await delete(categoryId);
   }
 
@@ -201,5 +202,9 @@ class CategoryRepository {
     return (_db.delete(_db.categoryNotes)
           ..where((n) => n.categoryId.equals(categoryId)))
         .go();
+  }
+
+  Future<void> deleteAllCategoryNotes() {
+    return _db.delete(_db.categoryNotes).go();
   }
 }

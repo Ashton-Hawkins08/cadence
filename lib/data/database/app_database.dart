@@ -128,7 +128,7 @@ class PieceSections extends Table {
   PieceSections,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 5;
@@ -144,7 +144,7 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(metronomePieces);
             await m.createTable(pieceSections);
           }
-          if (from < 4) {
+          if (from >= 3 && from < 4) {
             await m.addColumn(metronomePieces, metronomePieces.isArchived);
             await m.addColumn(pieceSections, pieceSections.accentFirstBeat);
           }

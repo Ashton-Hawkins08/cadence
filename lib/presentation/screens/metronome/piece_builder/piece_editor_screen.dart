@@ -262,6 +262,16 @@ class _SectionCardState extends State<_SectionCard> {
   }
 
   @override
+  void didUpdateWidget(covariant _SectionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reorder swaps which draft object this State holds; sync controllers.
+    if (oldWidget.draft != widget.draft) {
+      _bpmCtrl.text = widget.draft.bpm.toString();
+      _endCtrl.text = widget.draft.endMeasure.toString();
+    }
+  }
+
+  @override
   void dispose() {
     _bpmCtrl.dispose();
     _endCtrl.dispose();
@@ -397,8 +407,14 @@ class _SectionCardState extends State<_SectionCard> {
                       onChanged: (v) {
                         final parsed = int.tryParse(v);
                         if (parsed != null) {
-                          setState(() => d.bpm = parsed.clamp(
-                              AppConstants.minBpm, AppConstants.maxBpm));
+                          final clamped = parsed.clamp(
+                              AppConstants.minBpm, AppConstants.maxBpm);
+                          setState(() => d.bpm = clamped);
+                          if (clamped != parsed) {
+                            _bpmCtrl.text = clamped.toString();
+                            _bpmCtrl.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _bpmCtrl.text.length));
+                          }
                           widget.onChanged();
                         }
                       },

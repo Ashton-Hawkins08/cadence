@@ -149,32 +149,43 @@ class _PieceTile extends ConsumerWidget {
 
   Future<void> _showOptions(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(pieceRepositoryProvider);
-    await showModalBottomSheet<void>(
+    final action = await showModalBottomSheet<_PieceAction>(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => _PieceOptions(
-        piece: piece,
-        repo: repo,
-        onClose: () => Navigator.of(ctx).pop(),
-      ),
+      builder: (ctx) => _PieceOptions(piece: piece),
     );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case _PieceAction.rename:
+        final name = await _showNameDialog(context, 'Rename Piece', piece.title);
+        if (name != null && name.isNotEmpty) {
+          await repo.rename(piece.id, name);
+        }
+      case _PieceAction.duplicate:
+        await repo.duplicate(piece.id, '${piece.title} Copy');
+      case _PieceAction.archive:
+        await repo.archive(piece.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('"${piece.title}" archived.')));
+        }
+    }
   }
 }
 
+enum _PieceAction { rename, duplicate, archive }
+
 // ── Piece options sheet ───────────────────────────────────────────────────────
 
-class _PieceOptions extends ConsumerWidget {
+class _PieceOptions extends StatelessWidget {
   final MetronomePiece piece;
-  final PieceRepository repo;
-  final VoidCallback onClose;
 
-  const _PieceOptions(
-      {required this.piece, required this.repo, required this.onClose});
+  const _PieceOptions({required this.piece});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -184,34 +195,17 @@ class _PieceOptions extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Rename'),
-              onTap: () async {
-                onClose();
-                final name =
-                    await _showNameDialog(context, 'Rename Piece', piece.title);
-                if (name != null && name.isNotEmpty) {
-                  await repo.rename(piece.id, name);
-                }
-              },
+              onTap: () => Navigator.of(context).pop(_PieceAction.rename),
             ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
               title: const Text('Duplicate'),
-              onTap: () async {
-                onClose();
-                await repo.duplicate(piece.id, '${piece.title} Copy');
-              },
+              onTap: () => Navigator.of(context).pop(_PieceAction.duplicate),
             ),
             ListTile(
               leading: const Icon(Icons.archive_outlined),
               title: const Text('Archive'),
-              onTap: () async {
-                onClose();
-                await repo.archive(piece.id);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('"${piece.title}" archived.')));
-                }
-              },
+              onTap: () => Navigator.of(context).pop(_PieceAction.archive),
             ),
           ],
         ),
@@ -283,21 +277,3 @@ Future<String?> _showNameDialog(
   );
 }
 
-Future<bool?> _showDeleteConfirm(BuildContext context, String title) =>
-    showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Piece?'),
-        content: Text('Delete "$title"? This cannot be undone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel')),
-          FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: AppColors.error),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Delete')),
-        ],
-      ),
-    );

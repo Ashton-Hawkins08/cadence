@@ -5,6 +5,7 @@ import 'package:cadence/data/database/app_database.dart';
 import 'package:cadence/domain/services/progress_service.dart';
 import 'package:cadence/presentation/providers/categories_provider.dart';
 import 'package:cadence/presentation/providers/exercises_provider.dart';
+import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/providers/stats_provider.dart';
 import 'package:cadence/presentation/providers/streak_provider.dart';
 import 'package:intl/intl.dart';
@@ -56,12 +57,11 @@ class _OverviewTab extends ConsumerWidget {
     final streakAsync = ref.watch(streakProvider);
     final overallBpmAsync = ref.watch(overallAvgBpmProvider);
     final exercises = ref.watch(exercisesProvider).valueOrNull ?? [];
+    final settingsData = ref.watch(settingsProvider).valueOrNull;
 
     final streak = streakAsync.valueOrNull;
-    final totalSessions =
-        exercises.fold<int>(0, (sum, e) => sum + e.timesPracticed);
-    final totalMinutes =
-        exercises.fold<int>(0, (sum, e) => sum + e.totalMinutes);
+    final totalSessions = settingsData?.totalSessions ?? 0;
+    final totalMinutes = settingsData?.totalMinutes ?? 0;
     final exercisesWithGoals =
         exercises.where((e) => e.goalBpm != null).length;
 

@@ -178,8 +178,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       }
 
       if (mounted) Navigator.pop(context, true);
-    } catch (_) {
-      if (mounted) setState(() => _saving = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save event. Please try again.')),
+        );
+      }
     }
   }
 

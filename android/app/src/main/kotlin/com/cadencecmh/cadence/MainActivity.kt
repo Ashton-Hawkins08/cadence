@@ -34,12 +34,22 @@ class MainActivity : FlutterActivity() {
                         @Suppress("UNCHECKED_CAST")
                         val paths = call.arguments as Map<String, String>
                         val total = paths.size
-                        var loaded = 0
 
-                        pool.setOnLoadCompleteListener { _, _, status ->
-                            if (status == 0) {
-                                loaded++
-                                if (loaded >= total) {
+                        if (total == 0) {
+                            soundPool = pool
+                            result.success(null)
+                            return@setMethodCallHandler
+                        }
+
+                        // AtomicInteger: onLoadComplete fires on a background thread;
+                        // non-atomic ++ risks a lost increment → result never called.
+                        // Count every completion (success or failure) so a bad file
+                        // can't silently hang the await on the Dart side.
+                        val loaded = java.util.concurrent.atomic.AtomicInteger(0)
+
+                        pool.setOnLoadCompleteListener { _, _, _ ->
+                            if (loaded.incrementAndGet() == total) {
+                                runOnUiThread {
                                     soundPool = pool
                                     result.success(null)
                                 }
