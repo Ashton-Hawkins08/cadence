@@ -118,7 +118,7 @@ class _ClickPool {
   }
 }
 
-// ── Native SoundPool channel (Android) ───────────────────────────────────────
+// ── Native audio channel (Android SoundPool / Windows PlaySoundW) ────────────
 
 class _NativePool {
   static const _ch = MethodChannel('cadence/metronome');
@@ -135,6 +135,7 @@ class _NativePool {
   }
 
   Future<void> dispose() async {
+    if (!_ready) return;
     await _ch.invokeMethod<void>('dispose');
     _ready = false;
   }
@@ -182,9 +183,9 @@ class MetronomeEngine {
 
   // ── Audio ──────────────────────────────────────────────────────────────────
   bool _audioReady = false;
-  // Android: direct SoundPool via native channel
+  // Android + Windows: zero-threading-overhead native channel
   final _native = _NativePool();
-  // Windows/desktop: audioplayers click pools
+  // macOS / Linux desktop: audioplayers click pools
   final _downbeat = _ClickPool();
   final _beat = _ClickPool();
   final _sub = _ClickPool();
@@ -222,7 +223,7 @@ class MetronomeEngine {
       await d.writeAsBytes(WavGenerator.downbeat());
       await b.writeAsBytes(WavGenerator.beat());
       await s.writeAsBytes(WavGenerator.subdivision());
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isWindows) {
         await _native.init({
           'downbeat': d.path,
           'beat': b.path,
@@ -428,7 +429,7 @@ class MetronomeEngine {
     if (level == BeatLevel.downbeat && !_accentFirstBeat) {
       effective = BeatLevel.beat;
     }
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isWindows) {
       switch (effective) {
         case BeatLevel.downbeat:
           _native.play('downbeat');
@@ -471,7 +472,7 @@ class MetronomeEngine {
   Future<void> dispose() async {
     stop();
     await _ctrl.close();
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isWindows) {
       await _native.dispose();
     } else {
       await _downbeat.dispose();

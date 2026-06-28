@@ -5,14 +5,17 @@ import 'package:cadence/core/constants/app_constants.dart';
 import 'package:cadence/core/constants/metronome_constants.dart';
 import 'package:cadence/domain/services/metronome_engine.dart';
 
-// Stub the two audioplayers method channels so AudioPlayer() can be
-// constructed without a real native plugin (all calls return null).
+// Stub native audio channels so MetronomeEngine can be constructed and
+// disposed cleanly in tests without a real native plugin.
+// On Windows, _NativePool uses 'cadence/metronome'; on other platforms
+// AudioPlayer uses the audioplayers channels.
 void _stubAudioplayers() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   for (final name in [
     'xyz.luan/audioplayers.global',
     'xyz.luan/audioplayers',
+    'cadence/metronome',
   ]) {
     messenger.setMockMethodCallHandler(
       MethodChannel(name),
