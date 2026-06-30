@@ -106,11 +106,23 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
   WavSound& ws = it->second;
   if (ws.pcm.empty()) return;
 
-  const int idx = ws.nextHdr;
-  ws.nextHdr    = (idx + 1) % kWavBufferCount;
-  WAVEHDR& hdr  = ws.hdrs[idx];
+  // Try each buffer slot in sequence; prefer one not currently in the driver
+  // queue. With kWavBufferCount = 4 and our longest click at 12 ms, all
+  // slots should be free long before the same slot is re-requested. The
+  // loop handles the pathological case of a slow driver without dropping the
+  // beat on the first INQUEUE hit.
+  WAVEHDR* hdrPtr = nullptr;
+  for (int attempt = 0; attempt < kWavBufferCount; ++attempt) {
+    const int idx = ws.nextHdr;
+    ws.nextHdr    = (idx + 1) % kWavBufferCount;
+    if (!(ws.hdrs[idx].dwFlags & WHDR_INQUEUE)) {
+      hdrPtr = &ws.hdrs[idx];
+      break;
+    }
+  }
+  if (!hdrPtr) return; // all buffers queued (shouldn't happen with 4 buffers)
 
-  if (hdr.dwFlags & WHDR_INQUEUE) return; // buffer still draining, skip beat
+  WAVEHDR& hdr = *hdrPtr;
 
   if (hdr.dwFlags & WHDR_PREPARED)
     waveOutUnprepareHeader(s_hWaveOut, &hdr, sizeof(WAVEHDR));
