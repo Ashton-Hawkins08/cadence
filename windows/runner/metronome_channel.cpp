@@ -1,5 +1,6 @@
 #include "metronome_channel.h"
 
+#include <algorithm>
 #include <fstream>
 #include <flutter/standard_method_codec.h>
 
@@ -79,8 +80,8 @@ std::vector<BeatDef> MetronomeChannel::ParseTicks(
 // ── waveOut audio ─────────────────────────────────────────────────────────────
 //
 // Uses waveOutWrite to queue raw PCM buffers directly to the audio device.
-// Double-buffering per sound means the beat thread never blocks waiting for
-// a previous buffer to drain (clicks are ~10ms; minimum interval is ~62ms).
+// A buffer ring per sound (see kWavBufferCount) means the beat thread never
+// blocks waiting for a previous buffer to drain.
 
 void MetronomeChannel::CloseWaveOut() {
   std::lock_guard<std::mutex> lk(s_wavMutex);
@@ -106,7 +107,7 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
   if (ws.pcm.empty()) return;
 
   const int idx = ws.nextHdr;
-  ws.nextHdr    = 1 - idx;
+  ws.nextHdr    = (idx + 1) % kWavBufferCount;
   WAVEHDR& hdr  = ws.hdrs[idx];
 
   if (hdr.dwFlags & WHDR_INQUEUE) return; // buffer still draining, skip beat
@@ -196,9 +197,14 @@ void MetronomeChannel::RunBeatLoop() {
       nextBeat.QuadPart += intervalQpc;
       ++localTickIdx;
 
-      // Burst prevention: skip ahead instead of firing a burst after a stall.
+      // Burst prevention: only skip ahead for a genuine stall (at least 4
+      // intervals or 250 ms behind, whichever is larger). A small overrun
+      // from transient jitter is left to catch up on the very next loop
+      // iteration (fires slightly early) instead of silently dropping a beat.
       QueryPerformanceCounter(&now);
-      if (now.QuadPart >= nextBeat.QuadPart) {
+      LONGLONG behindQpc = now.QuadPart - nextBeat.QuadPart;
+      LONGLONG maxCatchUpQpc = std::max(intervalQpc * 4, freq.QuadPart / 4);
+      if (behindQpc > maxCatchUpQpc) {
         nextBeat.QuadPart = now.QuadPart + intervalQpc;
       }
 

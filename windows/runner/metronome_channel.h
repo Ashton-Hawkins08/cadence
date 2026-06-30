@@ -34,11 +34,16 @@ class MetronomeChannel {
       s_channel;
 
   // ── waveOut audio ────────────────────────────────────────────────────────
-  // Each sound has raw PCM bytes + double-buffered WAVEHDRs so the beat thread
-  // can queue the next buffer while the previous one drains.
+  // Each sound has raw PCM bytes + a ring of WAVEHDRs so the beat thread can
+  // queue a new buffer while earlier ones are still draining through the
+  // driver. waveOut buffer-completion latency can run well past the audio's
+  // own playback length, so 2 buffers starve (and silently drop beats) once
+  // the interval gets short — e.g. 16th notes at 300 BPM is a 50 ms gap.
+  // 4 buffers give roughly double the headroom.
+  static constexpr int kWavBufferCount = 4;
   struct WavSound {
-    std::vector<char> pcm;       // raw 16-bit mono PCM (WAV header stripped)
-    WAVEHDR           hdrs[2]{}; // double-buffer
+    std::vector<char> pcm;                    // raw 16-bit mono PCM (WAV header stripped)
+    WAVEHDR           hdrs[kWavBufferCount]{}; // buffer ring
     int               nextHdr{0};
   };
   static HWAVEOUT                         s_hWaveOut;

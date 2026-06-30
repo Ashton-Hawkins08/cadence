@@ -33,6 +33,12 @@ class MainActivity : FlutterActivity() {
     private val resetRequested = AtomicBoolean(false)
     private val beatGeneration = AtomicInteger(0)
 
+    // The "start" MethodChannel result, held open until the beat thread's
+    // first tick actually plays — see runBeatLoop(). This is what lets Dart
+    // anchor its visual timer to the real native start time instead of
+    // racing the thread's OS scheduling delay.
+    @Volatile private var pendingStartResult: MethodChannel.Result? = null
+
     // ──────────────────────────────────────────────────────────────────────────
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -117,13 +123,23 @@ class MainActivity : FlutterActivity() {
                         currentBpm   = (args["bpm"] as Number).toInt()
                         currentTicks = parseTicks(args["ticks"] as List<*>)
                         resetRequested.set(false)
+                        // Resolve any orphaned result from a start() that was
+                        // superseded before its first beat fired.
+                        pendingStartResult?.success(null)
+                        pendingStartResult = result
                         startBeatThread()
-                        result.success(null)
+                        // result.success() is deferred — see runBeatLoop().
                     }
 
                     // ── stop ───────────────────────────────────────────────
                     "stop" -> {
                         stopBeatThread()
+                        // If start() never got to fire its first beat before
+                        // stop() arrived, resolve it now so Dart's await
+                        // doesn't hang.
+                        val pending = pendingStartResult
+                        pendingStartResult = null
+                        pending?.success(null)
                         result.success(null)
                     }
 
@@ -193,6 +209,17 @@ class MainActivity : FlutterActivity() {
         beatThread = null
     }
 
+    // Called from the beat thread the moment the first beat actually plays.
+    // Posts back to the UI thread since MethodChannel results must complete
+    // there.
+    private fun resolvePendingStart() {
+        val pending = pendingStartResult
+        if (pending != null) {
+            pendingStartResult = null
+            runOnUiThread { pending.success(null) }
+        }
+    }
+
     // ── Beat loop (runs on dedicated audio-priority thread) ────────────────────
     //
     // Uses System.nanoTime() — a monotonic hardware counter unaffected by wall-
@@ -243,6 +270,8 @@ class MainActivity : FlutterActivity() {
                 val bpm   = currentBpm
 
                 if (ticks.isEmpty()) {
+                    // No pattern yet — don't leave Dart's start() awaiting forever.
+                    resolvePendingStart()
                     try { Thread.sleep(4) } catch (_: InterruptedException) { break }
                     continue
                 }
@@ -259,14 +288,28 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                // This is the actual first audible beat of this thread
+                // generation — resolve the "start" result now so Dart's
+                // visual timer anchors to this exact moment instead of to
+                // whenever the thread happened to get OS-scheduled.
+                if (localTickIdx == 0) {
+                    resolvePendingStart()
+                }
+
                 val intervalNs = (tick.multiplier * 60_000_000_000.0 / bpm).toLong()
                 nextBeatNs    += intervalNs
                 localTickIdx  ++
 
-                // Burst prevention: if we're already past the NEXT deadline
-                // (e.g. after a long Doze wakeup), skip ahead rather than
-                // firing a burst of catch-up beats.
-                if (System.nanoTime() >= nextBeatNs) {
+                // Burst prevention: only skip ahead for a genuine stall (e.g.
+                // a long Doze wakeup) — at least 4 intervals or 250 ms behind,
+                // whichever is larger. A small overrun (a few ms of jitter at
+                // high BPM / fine subdivisions) is left to catch up on the very
+                // next loop iteration instead, which fires that beat slightly
+                // early rather than dropping it silently. Dropping is far more
+                // noticeable to a musician than a few-ms-tight beat.
+                val behindNs = System.nanoTime() - nextBeatNs
+                val maxCatchUpNs = maxOf(intervalNs * 4, 250_000_000L)
+                if (behindNs > maxCatchUpNs) {
                     nextBeatNs = System.nanoTime() + intervalNs
                 }
 
