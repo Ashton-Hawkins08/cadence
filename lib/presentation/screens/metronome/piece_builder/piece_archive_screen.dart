@@ -110,7 +110,7 @@ class _ArchivedPieceTile extends ConsumerWidget {
               tooltip: 'Delete permanently',
               onPressed: () async {
                 final confirm = await _confirmDelete(context, piece.title);
-                if (confirm == true) {
+                if (confirm == true && context.mounted) {
                   await ref.read(pieceRepositoryProvider).delete(piece.id);
                 }
               },

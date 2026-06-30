@@ -473,8 +473,11 @@ class _EventListTile extends StatelessWidget {
     final color =
         EventColors.fromValue(event.colorValue) ?? theme.colorScheme.primary;
 
-    final start = event.startDate.toLocal();
-    final end = event.endDate.toLocal();
+    // Dates are stored as UTC midnight; extract the UTC year/month/day directly
+    // rather than calling toLocal(), which shifts midnight back one day in
+    // negative-offset timezones (e.g. Jun 21 00:00 UTC → Jun 20 in UTC-5).
+    final start = DateTime(event.startDate.year, event.startDate.month, event.startDate.day);
+    final end   = DateTime(event.endDate.year,   event.endDate.month,   event.endDate.day);
     final isSingleDay = start.year == end.year &&
         start.month == end.month &&
         start.day == end.day;
@@ -575,8 +578,9 @@ class _EventDetailScreenState
     final color =
         EventColors.fromValue(ev.colorValue) ?? theme.colorScheme.primary;
 
-    final start = ev.startDate.toLocal();
-    final end = ev.endDate.toLocal();
+    // Same UTC-midnight extraction as _EventListTile — avoid toLocal() rollback.
+    final start = DateTime(ev.startDate.year, ev.startDate.month, ev.startDate.day);
+    final end   = DateTime(ev.endDate.year,   ev.endDate.month,   ev.endDate.day);
     final isSingleDay = start.year == end.year &&
         start.month == end.month &&
         start.day == end.day;
@@ -684,7 +688,8 @@ class _EventDetailScreenState
 
   String _reminderLabel(EventReminder r) {
     if (r.daysBefore == -1 && r.customDate != null) {
-      return 'Custom: ${DateFormat('MMM d, yyyy').format(r.customDate!.toLocal())}';
+      final cd = r.customDate!;
+      return 'Custom: ${DateFormat('MMM d, yyyy').format(DateTime(cd.year, cd.month, cd.day))}';
     }
     return switch (r.daysBefore) {
       0 => 'Same day',

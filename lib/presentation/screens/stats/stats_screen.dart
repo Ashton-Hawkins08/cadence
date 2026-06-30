@@ -25,7 +25,7 @@ class StatsScreen extends ConsumerWidget {
           bottom: TabBar(
             tabs: const [
               Tab(text: 'Overview'),
-              Tab(text: 'Category & Exercises'),
+              Tab(text: 'Categories & Exercises'),
             ],
             labelColor: theme.colorScheme.primary,
             indicatorColor: theme.colorScheme.primary,
@@ -117,14 +117,19 @@ class _OverviewTab extends ConsumerWidget {
 
         const SizedBox(height: 16),
 
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
-          children: [
+        LayoutBuilder(
+          builder: (ctx, constraints) {
+            // Keep each stat cell ≈110 px tall regardless of screen width.
+            final cellWidth = (constraints.maxWidth - 12) / 2;
+            final aspectRatio = cellWidth / 110.0;
+            return GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: aspectRatio,
+              children: [
             _StatCell(
               icon: Icons.local_fire_department_outlined,
               label: 'Streak',
@@ -160,6 +165,8 @@ class _OverviewTab extends ConsumerWidget {
               value: exercisesWithGoals.toString(),
             ),
           ],
+        );
+          },
         ),
 
         if (streak != null && streak.debt > 0) ...[

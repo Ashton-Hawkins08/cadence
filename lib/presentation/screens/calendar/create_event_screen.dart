@@ -44,10 +44,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     if (ev != null) _loadExistingReminders(ev.id);
   }
 
-  DateTime _toLocalMidnight(DateTime dt) {
-    final l = dt.toLocal();
-    return DateTime(l.year, l.month, l.day);
-  }
+  // Dates are stored as UTC midnight; extract the UTC year/month/day directly.
+  // Calling toLocal() first would roll back midnight to the previous evening
+  // in negative-offset timezones, showing and re-saving the wrong date.
+  DateTime _toLocalMidnight(DateTime dt) =>
+      DateTime(dt.year, dt.month, dt.day);
 
   Future<void> _loadExistingReminders(int eventId) async {
     final reminders = await ref
@@ -175,6 +176,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   r.customDate!.day)
               : null,
         );
+        if (!mounted) return;
       }
 
       if (mounted) Navigator.pop(context, true);

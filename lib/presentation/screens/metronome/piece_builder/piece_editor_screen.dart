@@ -197,6 +197,7 @@ class _PieceEditorScreenState extends ConsumerState<PieceEditorScreen> {
       );
     }).toList();
     await repo.replaceSections(widget.pieceId, companions);
+    if (!mounted) return;
     setState(() => _dirty = false);
   }
 

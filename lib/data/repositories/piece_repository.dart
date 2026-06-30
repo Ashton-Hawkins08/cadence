@@ -60,12 +60,14 @@ class PieceRepository {
         .write(MetronomePiecesCompanion(modifiedAt: Value(DateTime.now())));
   }
 
-  Future<void> delete(int id) async {
-    await (_db.delete(_db.pieceSections)
-          ..where((s) => s.pieceId.equals(id)))
-        .go();
-    await (_db.delete(_db.metronomePieces)..where((p) => p.id.equals(id)))
-        .go();
+  Future<void> delete(int id) {
+    return _db.transaction(() async {
+      await (_db.delete(_db.pieceSections)
+            ..where((s) => s.pieceId.equals(id)))
+          .go();
+      await (_db.delete(_db.metronomePieces)..where((p) => p.id.equals(id)))
+          .go();
+    });
   }
 
   Future<void> deleteAll() async {
@@ -104,21 +106,30 @@ class PieceRepository {
 
   Future<int> duplicate(int sourceId, String newTitle) async {
     final sections = await getSectionsForPiece(sourceId);
-    final newId = await create(newTitle);
-    for (final s in sections) {
-      await _db.into(_db.pieceSections).insert(
-            PieceSectionsCompanion.insert(
-              pieceId: newId,
-              sortOrder: s.sortOrder,
-              startMeasure: s.startMeasure,
-              endMeasure: s.endMeasure,
-              bpm: s.bpm,
-              timeSignature: s.timeSignature,
-              subdivision: s.subdivision,
-              accentFirstBeat: Value(s.accentFirstBeat),
+    return _db.transaction(() async {
+      final now = DateTime.now();
+      final newId = await _db.into(_db.metronomePieces).insert(
+            MetronomePiecesCompanion.insert(
+              title: newTitle,
+              createdAt: now,
+              modifiedAt: now,
             ),
           );
-    }
-    return newId;
+      for (final s in sections) {
+        await _db.into(_db.pieceSections).insert(
+              PieceSectionsCompanion.insert(
+                pieceId: newId,
+                sortOrder: s.sortOrder,
+                startMeasure: s.startMeasure,
+                endMeasure: s.endMeasure,
+                bpm: s.bpm,
+                timeSignature: s.timeSignature,
+                subdivision: s.subdivision,
+                accentFirstBeat: Value(s.accentFirstBeat),
+              ),
+            );
+      }
+      return newId;
+    });
   }
 }

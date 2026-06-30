@@ -246,7 +246,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'No recent exercises',
+                      'No recent sessions',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? AppColors.darkTextSecondary

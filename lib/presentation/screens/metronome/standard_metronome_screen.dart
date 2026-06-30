@@ -78,7 +78,10 @@ class _StandardMetronomeScreenState
 
   Widget _buildBody(BuildContext context, ThemeData theme, bool isDark,
       MetronomeEngine engine, MetronomeState state) {
-    if (!_editingBpm) _bpmController.text = state.bpm.toString();
+    if (!_editingBpm) {
+      final s = state.bpm.toString();
+      if (_bpmController.text != s) _bpmController.text = s;
+    }
 
     return Scaffold(
       appBar: AppBar(

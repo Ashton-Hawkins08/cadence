@@ -119,6 +119,10 @@ class _ClickPool {
 }
 
 // ── Native audio channel (Android SoundPool / Windows PlaySoundW) ────────────
+//
+// The native side owns audio timing — it runs a dedicated high-priority thread
+// (THREAD_PRIORITY_AUDIO on Android, TIME_CRITICAL on Windows) driven by a
+// hardware monotonic clock.  Dart's 4 ms polling loop handles visual state only.
 
 class _NativePool {
   static const _ch = MethodChannel('cadence/metronome');
@@ -129,9 +133,42 @@ class _NativePool {
     _ready = true;
   }
 
-  void play(String sound, {double volume = 1.0}) {
+  // start: launches the native beat thread with the full tick pattern.
+  // Returns a Future that resolves once the platform thread has called
+  // startBeatThread() — i.e. the native audio beat 0 has fired (or is
+  // about to within ~2 ms).  Callers can await this to align the Dart
+  // visual timer with the actual native start time.
+  Future<void> start(int bpm, List<Map<String, dynamic>> ticks) async {
     if (!_ready) return;
-    _ch.invokeMethod<void>('play', {'sound': sound, 'volume': volume});
+    await _ch.invokeMethod<void>('start', {'bpm': bpm, 'ticks': ticks});
+  }
+
+  void stop() {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('stop');
+  }
+
+  void pause() {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('pause');
+  }
+
+  void resume() {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('resume');
+  }
+
+  // setBpm: hot-updates BPM without resetting the tick index.
+  void setBpm(int bpm) {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('setBpm', {'bpm': bpm});
+  }
+
+  // updatePattern: used for section transitions and time-sig / subdivision
+  // changes. Native resets to tick 0 and restarts the interval from now.
+  void updatePattern(int bpm, List<Map<String, dynamic>> ticks) {
+    if (!_ready) return;
+    _ch.invokeMethod<void>('updatePattern', {'bpm': bpm, 'ticks': ticks});
   }
 
   Future<void> dispose() async {
@@ -178,11 +215,14 @@ class MetronomeEngine {
 
   // ── Timing ─────────────────────────────────────────────────────────────────
   final _stopwatch = Stopwatch();
-  double _accumulatedMs = 0;
+  // Absolute wall-clock ms (relative to _stopwatch) at which the next beat
+  // should fire. Polled every 4 ms so max jitter is 4 ms — inaudible.
+  double _nextBeatMs = 0.0;
   Timer? _timer;
 
   // ── Audio ──────────────────────────────────────────────────────────────────
   bool _audioReady = false;
+  bool _disposed = false;
   // Android + Windows: zero-threading-overhead native channel
   final _native = _NativePool();
   // macOS / Linux desktop: audioplayers click pools
@@ -202,6 +242,8 @@ class MetronomeEngine {
     _initAudio();
   }
 
+  bool get _usesNativeTiming => Platform.isAndroid || Platform.isWindows;
+
   void _rebuildPattern() {
     _pattern = buildTickPattern(_timeSignature, _subdivision);
     _visualTotalBeats = _visualBeatsFor(_timeSignature, _subdivision);
@@ -210,20 +252,21 @@ class MetronomeEngine {
   // ── Audio init ─────────────────────────────────────────────────────────────
 
   Future<void> _initAudio() async {
-    if (kIsWeb) {
-      _audioReady = true;
-      _emit();
+    if (kIsWeb || _disposed) {
+      if (!_disposed) { _audioReady = true; _emit(); }
       return;
     }
     try {
       final dir = await getTemporaryDirectory();
+      if (_disposed) return;
       final d = File('${dir.path}/metro_down.wav');
       final b = File('${dir.path}/metro_beat.wav');
       final s = File('${dir.path}/metro_sub.wav');
       await d.writeAsBytes(WavGenerator.downbeat());
       await b.writeAsBytes(WavGenerator.beat());
       await s.writeAsBytes(WavGenerator.subdivision());
-      if (Platform.isAndroid || Platform.isWindows) {
+      if (_disposed) return;
+      if (_usesNativeTiming) {
         await _native.init({
           'downbeat': d.path,
           'beat': b.path,
@@ -234,15 +277,42 @@ class MetronomeEngine {
         await _beat.init(b.path);
         await _sub.init(s.path, volume: 0.6);
       }
+      if (_disposed) return;
       _audioReady = true;
       _emit();
     } catch (_) {
+      if (_disposed) return;
       _audioReady = true;
       _emit();
     }
   }
 
   // ── Public controls ────────────────────────────────────────────────────────
+
+  // Builds the tick list sent to the native beat thread.
+  List<Map<String, dynamic>> _buildNativeTicks() {
+    return _pattern.map((tick) {
+      BeatLevel effective = tick.level;
+      if (tick.level == BeatLevel.downbeat && !_accentFirstBeat) {
+        effective = BeatLevel.beat;
+      }
+      final String sound;
+      final double volume;
+      switch (effective) {
+        case BeatLevel.downbeat:
+          sound = 'downbeat'; volume = 1.0;
+        case BeatLevel.beat:
+          sound = 'beat'; volume = 1.0;
+        case BeatLevel.subdivision:
+          sound = 'sub'; volume = 0.6;
+      }
+      return {
+        'sound': sound,
+        'multiplier': tick.quarterNoteMultiplier,
+        'volume': volume,
+      };
+    }).toList();
+  }
 
   void start({List<SectionConfig>? sections}) {
     if (_isPlaying) stop();
@@ -260,14 +330,40 @@ class MetronomeEngine {
     _pendingMeasureIncrement = false;
     _stopwatch.reset();
     _stopwatch.start();
-    _accumulatedMs = 0;
-    _timer = Timer(Duration.zero, _onTick);
-    _emit();
+    _nextBeatMs = 0.0;
+    if (_usesNativeTiming) {
+      // Await the channel round-trip before starting the Dart timer.
+      // result.success() is called on the native side after startBeatThread(),
+      // so when this resolves the native beat thread has already fired beat 0
+      // (or is within ~2 ms of doing so).  Setting _nextBeatMs=0 then means
+      // visual beat 0 fires on the very next poll (~4 ms later), which is
+      // within the audio-visual sync tolerance on every device — no
+      // hardcoded per-device guess needed.
+      _emit(); // show playing state immediately so the UI switches to stop btn
+      _native.start(_bpm, _buildNativeTicks()).then((_) {
+        if (!_isPlaying) return; // stop() called during round-trip
+        // Anchor _nextBeatMs to current elapsed time so that:
+        //   (a) visual beat 0 fires right now (no extra 4 ms poll lag), and
+        //   (b) every subsequent _nextBeatMs = nowMs + n*intervalMs, keeping
+        //       the visual-to-visual gap exactly intervalMs regardless of how
+        //       long the channel round-trip took.
+        final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
+        _nextBeatMs = nowMs;
+        _fireBeat(nowMs);
+        _timer = Timer.periodic(const Duration(milliseconds: 4), _poll);
+      });
+    } else {
+      _timer = Timer.periodic(const Duration(milliseconds: 4), _poll);
+      _emit();
+    }
   }
 
   void stop() {
     _timer?.cancel();
     _stopwatch.stop();
+    if (_usesNativeTiming) {
+      _native.stop();
+    }
     _isPlaying = false;
     _isPaused = false;
     _tickIndex = 0;
@@ -284,6 +380,9 @@ class MetronomeEngine {
     if (!_isPlaying || _isPaused) return;
     _timer?.cancel();
     _stopwatch.stop();
+    if (_usesNativeTiming) {
+      _native.pause();
+    }
     _isPaused = true;
     _emit();
   }
@@ -292,14 +391,18 @@ class MetronomeEngine {
     if (!_isPaused) return;
     _isPaused = false;
     _stopwatch.start();
-    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
-    final delayMs = (_accumulatedMs - nowMs).clamp(0.0, 2000.0);
-    _timer = Timer(Duration(microseconds: (delayMs * 1000).round()), _onTick);
+    if (_usesNativeTiming) {
+      _native.resume();
+    }
+    _timer = Timer.periodic(const Duration(milliseconds: 4), _poll);
     _emit();
   }
 
   void setBpm(int bpm) {
     _bpm = bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
+    if (_usesNativeTiming) {
+      _native.setBpm(_bpm);
+    }
     _emit();
   }
 
@@ -310,6 +413,12 @@ class MetronomeEngine {
     _rebuildPattern();
     _tickIndex = 0;
     _visualBeatIndex = 0;
+    if (_isPlaying && !_isPaused) {
+      _nextBeatMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    }
+    if (_isPlaying && (_usesNativeTiming)) {
+      _native.updatePattern(_bpm, _buildNativeTicks());
+    }
     _emit();
   }
 
@@ -318,11 +427,23 @@ class MetronomeEngine {
     _rebuildPattern();
     _tickIndex = 0;
     _visualBeatIndex = 0;
+    if (_isPlaying && !_isPaused) {
+      _nextBeatMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    }
+    if (_isPlaying && (_usesNativeTiming)) {
+      _native.updatePattern(_bpm, _buildNativeTicks());
+    }
     _emit();
   }
 
   void setAccentFirstBeat(bool value) {
     _accentFirstBeat = value;
+    if (_isPlaying && !_isPaused) {
+      _nextBeatMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    }
+    if (_isPlaying && _usesNativeTiming) {
+      _native.updatePattern(_bpm, _buildNativeTicks());
+    }
     _emit();
   }
 
@@ -355,11 +476,23 @@ class MetronomeEngine {
 
   // ── Internal tick loop ─────────────────────────────────────────────────────
 
-  void _onTick() {
+  // Polled every 4 ms. Fires a beat whenever the wall clock reaches _nextBeatMs.
+  // Using a periodic poll instead of a rescheduled single-shot timer eliminates
+  // two bugs:
+  //   1. "Fast second beat": the old code set _accumulatedMs=0 at start() but
+  //      the first callback fired Δ ms later, making the first gap intervalMs-Δ.
+  //   2. Jitter accumulation: late single-shot callbacks shortened the next
+  //      interval to compensate, compounding under event-loop load.
+  void _poll(Timer _) {
     if (!_isPlaying || _isPaused) return;
+    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    if (nowMs < _nextBeatMs) return;
+    _fireBeat(nowMs);
+  }
 
-    // Measure increments at the downbeat, not at the end of the previous measure,
-    // so the display always shows the correct measure while it's playing.
+  void _fireBeat(double nowMs) {
+    // Measure increments at the downbeat so the display shows the correct
+    // measure number while it is playing.
     if (_pendingMeasureIncrement) {
       _currentMeasure++;
       _pendingMeasureIncrement = false;
@@ -387,12 +520,36 @@ class MetronomeEngine {
     }
 
     _firedTickIndex = firedIndex;
-    _emit(lastFiredLevel: tick.level);
+    _nextBeatMs += intervalMs;
 
-    _accumulatedMs += intervalMs;
-    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
-    final delayMs = (_accumulatedMs - nowMs).clamp(0.0, intervalMs * 2.5);
-    _timer = Timer(Duration(microseconds: (delayMs * 1000).round()), _onTick);
+    // If the Dart event loop was delayed past the next deadline, fast-forward
+    // the tick counter to stay in phase with the native beat thread.
+    // The native thread fires every beat regardless — if we just bump the
+    // deadline without advancing _tickIndex the visual dots show the wrong beat.
+    // On non-native platforms there is no independent audio thread, so simply
+    // advancing the deadline is correct.
+    if (_usesNativeTiming) {
+      while (nowMs >= _nextBeatMs) {
+        final skipped = _pattern[_tickIndex];
+        if (skipped.level == BeatLevel.downbeat) {
+          _visualBeatIndex = 0;
+        } else if (skipped.level == BeatLevel.beat) {
+          _visualBeatIndex++;
+        }
+        _nextBeatMs += skipped.quarterNoteMultiplier * (60000.0 / _bpm);
+        _tickIndex++;
+        if (_tickIndex >= _pattern.length) {
+          _tickIndex = 0;
+          _pendingMeasureIncrement = true;
+        }
+      }
+    } else {
+      if (nowMs >= _nextBeatMs) {
+        _nextBeatMs = nowMs + intervalMs;
+      }
+    }
+
+    _emit(lastFiredLevel: tick.level);
   }
 
   void _checkSectionTransition() {
@@ -421,32 +578,28 @@ class MetronomeEngine {
     _rebuildPattern();
     _tickIndex = 0;
     _visualBeatIndex = 0;
+    // Push new pattern to native thread; it resets its tick index atomically.
+    if (_usesNativeTiming) {
+      _native.updatePattern(_bpm, _buildNativeTicks());
+    }
   }
 
   void _playTick(BeatLevel level) {
     if (!_audioReady) return;
+    // On Android/Windows the native beat thread owns audio — skip here.
+    if (_usesNativeTiming) return;
+
     BeatLevel effective = level;
     if (level == BeatLevel.downbeat && !_accentFirstBeat) {
       effective = BeatLevel.beat;
     }
-    if (Platform.isAndroid || Platform.isWindows) {
-      switch (effective) {
-        case BeatLevel.downbeat:
-          _native.play('downbeat');
-        case BeatLevel.beat:
-          _native.play('beat');
-        case BeatLevel.subdivision:
-          _native.play('sub', volume: 0.6);
-      }
-    } else {
-      switch (effective) {
-        case BeatLevel.downbeat:
-          _downbeat.fire();
-        case BeatLevel.beat:
-          _beat.fire();
-        case BeatLevel.subdivision:
-          _sub.fire();
-      }
+    switch (effective) {
+      case BeatLevel.downbeat:
+        _downbeat.fire();
+      case BeatLevel.beat:
+        _beat.fire();
+      case BeatLevel.subdivision:
+        _sub.fire();
     }
   }
 
@@ -470,9 +623,11 @@ class MetronomeEngine {
   }
 
   Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
     stop();
     await _ctrl.close();
-    if (Platform.isAndroid || Platform.isWindows) {
+    if (_usesNativeTiming) {
       await _native.dispose();
     } else {
       await _downbeat.dispose();

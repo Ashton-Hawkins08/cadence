@@ -329,7 +329,7 @@ class _NamePage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'We\'ll use this to personalise your experience.',
+            'We\'ll use this to personalize your experience.',
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 32),

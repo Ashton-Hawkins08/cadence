@@ -138,8 +138,14 @@ enum MetronomeTimeSignature {
 
 // ── Tick pattern builder ──────────────────────────────────────────────────────
 // Returns the ordered list of ticks that constitute one full measure.
-// BPM is always expressed as quarter-notes-per-minute; quarterNoteMultiplier
-// on each tick determines its duration relative to that reference.
+//
+// BPM refers to the primary beat unit of the time signature:
+//   • Simple time  (x/4): beat = quarter note    → multiplier 1.0 per beat
+//   • Compound time (x/8): beat = dotted quarter → multiplier 1.0 per beat
+//
+// This matches the convention of all physical/professional metronomes
+// (Dr. Beat, Korg, Boss): at 120 BPM in 6/8 the dotted-quarter fires
+// 120 times per minute, identical to 120 quarter-note clicks in 4/4.
 
 List<MetronomeTick> buildTickPattern(
   MetronomeTimeSignature ts,
@@ -181,24 +187,27 @@ List<MetronomeTick> buildTickPattern(
         return t(1 / 3, BeatLevel.subdivision);
       });
 
-    // ── Compound x/8: dotted-quarter = 3 eighths ────────────────────────────
+    // ── Compound x/8: BPM = dotted-quarter beats per minute ─────────────────
+    // Each dotted quarter = 1.0 BPM-unit. Sub-divisions:
+    //   eighth note    = 1/3 of a dotted quarter
+    //   sixteenth note = 1/6 of a dotted quarter
     case MetronomeSubdivision.dottedQuarter:
       final count = max(1, n ~/ 3);
       return List.generate(
-          count, (i) => t(1.5, i == 0 ? BeatLevel.downbeat : BeatLevel.beat));
+          count, (i) => t(1.0, i == 0 ? BeatLevel.downbeat : BeatLevel.beat));
 
     case MetronomeSubdivision.compoundEighth:
       return List.generate(n, (i) {
-        if (i == 0) return t(0.5, BeatLevel.downbeat);
-        if (i % 3 == 0) return t(0.5, BeatLevel.beat);
-        return t(0.5, BeatLevel.subdivision);
+        if (i == 0) return t(1 / 3, BeatLevel.downbeat);
+        if (i % 3 == 0) return t(1 / 3, BeatLevel.beat);
+        return t(1 / 3, BeatLevel.subdivision);
       });
 
     case MetronomeSubdivision.compoundSixteenth:
       return List.generate(2 * n, (i) {
-        if (i == 0) return t(0.25, BeatLevel.downbeat);
-        if (i % 6 == 0) return t(0.25, BeatLevel.beat);
-        return t(0.25, BeatLevel.subdivision);
+        if (i == 0) return t(1 / 6, BeatLevel.downbeat);
+        if (i % 6 == 0) return t(1 / 6, BeatLevel.beat);
+        return t(1 / 6, BeatLevel.subdivision);
       });
 
     // ── 5/8 asymmetrical ────────────────────────────────────────────────────

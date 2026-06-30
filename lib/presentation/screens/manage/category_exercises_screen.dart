@@ -20,7 +20,7 @@ class CategoryExercisesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Category & Exercises'),
+        title: const Text('Categories & Exercises'),
         actions: [
           IconButton(
             icon: const Icon(Icons.create_new_folder_outlined),
