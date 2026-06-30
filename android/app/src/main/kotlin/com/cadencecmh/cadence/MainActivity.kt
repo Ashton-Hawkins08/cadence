@@ -180,7 +180,7 @@ class MainActivity : FlutterActivity() {
         val gen = beatGeneration.incrementAndGet()
         threadRunning = true
         threadPaused  = false
-        beatThread = Thread("cadence-beat") { runBeatLoop(gen) }.also { t ->
+        beatThread = Thread({ runBeatLoop(gen) }, "cadence-beat").also { t ->
             t.isDaemon = true
             t.start()
         }

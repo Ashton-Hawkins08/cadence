@@ -23,7 +23,7 @@ class MetronomeService : Service() {
         val openApp = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             },
             PendingIntent.FLAG_IMMUTABLE
         )
