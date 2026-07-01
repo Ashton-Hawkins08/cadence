@@ -46,13 +46,23 @@ class MainActivity : FlutterActivity() {
     private fun playClick(name: String, volume: Float) {
         val pool  = clickPools[name] ?: return
         val track = pool.tracks[pool.idx.getAndIncrement() and (POOL_SIZE - 1)]
-        // stop() is a no-op if the track is already stopped (normal case).
-        // If the track is somehow still playing (shouldn't happen with pool
-        // size 4), stop() truncates the tail — inaudible at <1 ms residual.
-        track.stop()
-        track.setPlaybackHeadPosition(0)
-        track.setVolume(volume)
-        track.play()
+        try {
+            // stop() is a no-op if already stopped (normal case).
+            track.stop()
+            // reloadStaticData() is the documented idiom for replaying a
+            // MODE_STATIC buffer: resets position to 0 atomically.
+            // setPlaybackHeadPosition(0) can silently return
+            // ERROR_INVALID_OPERATION on some OEM audio stacks when the
+            // track is in a transitional state, leaving the play head at
+            // the end of the buffer so play() produces no audio.
+            track.reloadStaticData()
+            track.setVolume(volume)
+            track.play()
+        } catch (_: Exception) {
+            // Swallow any AudioTrack state-machine exception so it cannot
+            // propagate up through runBeatLoop() and silently kill the thread,
+            // which would cause every subsequent beat to be dropped.
+        }
     }
 
     private fun releaseClickPools() {
@@ -363,13 +373,19 @@ class MainActivity : FlutterActivity() {
                 }
 
                 val tick = ticks[localTickIdx % ticks.size]
-                playClick(tick.sound, tick.volume)
+
+                // Wrap the entire beat-fire block so that any unexpected
+                // exception (AudioTrack, runOnUiThread, etc.) cannot
+                // propagate out of runBeatLoop() and silently kill the thread.
+                try {
+                    playClick(tick.sound, tick.volume)
+                } catch (_: Exception) { /* beat skipped; thread survives */ }
 
                 // This is the actual first audible beat of this thread
                 // generation — resolve the "start" result now so Dart's
                 // visual timer anchors to this exact moment.
                 if (localTickIdx == 0) {
-                    resolvePendingStart()
+                    try { resolvePendingStart() } catch (_: Exception) {}
                 }
 
                 val intervalNs = (tick.multiplier * 60_000_000_000.0 / bpm).toLong()

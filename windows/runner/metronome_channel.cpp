@@ -147,6 +147,12 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
 
 void MetronomeChannel::RunBeatLoop() {
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+  // Windows default timer resolution is ~15.6 ms, making Sleep(1) sleep for
+  // up to 15 ms.  At 300 BPM with subdivisions the beat thread can overshoot
+  // the deadline by 13 ms per sleep, causing audible timing drift.
+  // timeBeginPeriod(1) raises the system-wide timer resolution to ~1 ms so
+  // Sleep(1) is accurate to ±0.5 ms.  timeEndPeriod(1) restores it on exit.
+  timeBeginPeriod(1);
 
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
@@ -230,6 +236,7 @@ void MetronomeChannel::RunBeatLoop() {
       }
     }
   }
+  timeEndPeriod(1);
   s_beatExited.store(true, std::memory_order_release);
 }
 
