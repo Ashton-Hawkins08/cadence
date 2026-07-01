@@ -230,6 +230,11 @@ class MetronomeEngine {
   final _beat = _ClickPool();
   final _sub = _ClickPool();
 
+  // Incremented on every start() so that a stale native.start() Future that
+  // resolves after a stop()+start() cycle does not spawn a second timer or
+  // call _fireBeat() for the old session.
+  int _startEpoch = 0;
+
   // ── Tap tempo ──────────────────────────────────────────────────────────────
   final List<int> _tapTimes = [];
 
@@ -340,8 +345,9 @@ class MetronomeEngine {
       // within the audio-visual sync tolerance on every device — no
       // hardcoded per-device guess needed.
       _emit(); // show playing state immediately so the UI switches to stop btn
+      final epoch = ++_startEpoch;
       _native.start(_bpm, _buildNativeTicks()).then((_) {
-        if (!_isPlaying) return; // stop() called during round-trip
+        if (!_isPlaying || _startEpoch != epoch) return; // superseded or stopped
         // Anchor _nextBeatMs to current elapsed time so that:
         //   (a) visual beat 0 fires right now (no extra 4 ms poll lag), and
         //   (b) every subsequent _nextBeatMs = nowMs + n*intervalMs, keeping

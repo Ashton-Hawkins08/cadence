@@ -391,11 +391,14 @@ class MainActivity : FlutterActivity() {
                 val remainingNs = nextBeatNs - nowNs
 
                 if (remainingNs > 3_000_000L) {
-                    // Sleep (remaining − 3 ms) in one call rather than
-                    // polling with hundreds of sleep(1 ms) calls.  This
-                    // yields the CPU efficiently while preserving the 3 ms
-                    // spin window for sub-ms arrival precision.
-                    val sleepMs = (remainingNs - 3_000_000L) / 1_000_000L
+                    // Sleep in one call (not hundreds of 1 ms sleeps) to
+                    // reduce context-switch overhead, but cap at MAX_SLEEP_MS
+                    // so that resetRequested / threadPaused / threadRunning
+                    // are re-checked within one video frame even when the next
+                    // beat is far away.  Without the cap a pattern change at
+                    // 60 BPM could be ignored for up to 997 ms.
+                    val sleepMs = ((remainingNs - 3_000_000L) / 1_000_000L)
+                        .coerceAtMost(MAX_SLEEP_MS)
                     try {
                         Thread.sleep(sleepMs)
                     } catch (_: InterruptedException) {
@@ -411,5 +414,9 @@ class MainActivity : FlutterActivity() {
     companion object {
         // Must be a power of 2 (used for bitwise index wrapping in playClick).
         private const val POOL_SIZE = 4
+        // Maximum single sleep chunk in the beat loop.  Caps the latency for
+        // detecting pattern/pause/stop changes to one video frame, even when
+        // the next beat is many hundreds of ms away.
+        private const val MAX_SLEEP_MS = 16L
     }
 }
