@@ -125,11 +125,17 @@ class MainActivity : FlutterActivity() {
                                 val pool  = Array(POOL_SIZE) { buildAudioTrack(pcm) }
                                 clickPools[name] = ClickPool(pool)
                             }
-                            // Warm up: one silent play so the hardware audio path
-                            // is already open before the first real beat.
-                            clickPools.values.firstOrNull()?.tracks?.first()?.let { t ->
-                                t.setVolume(0f)
-                                t.play()
+                            // Warm up: one silent play per track so the hardware
+                            // audio path is open and each AudioTrack instance has
+                            // completed its first-play initialization cycle before
+                            // the first real beat.  On some OEM audio stacks the
+                            // very first play() on any AudioTrack has extra latency;
+                            // paying that cost now means beat 0 is never late.
+                            clickPools.values.forEach { pool ->
+                                pool.tracks.forEach { t ->
+                                    t.setVolume(0f)
+                                    t.play()
+                                }
                             }
                             result.success(null)
                         } catch (e: Exception) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart' show CupertinoTimerPicker, CupertinoTimerPickerMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/core/constants/app_constants.dart';
 import 'package:cadence/core/constants/metronome_constants.dart';
 import 'package:cadence/presentation/providers/metronome_provider.dart';
+import 'package:cadence/presentation/providers/randomizer_provider.dart';
+import 'package:cadence/presentation/providers/cognitive_break_provider.dart';
 
 class StandardMetronomeScreen extends ConsumerStatefulWidget {
   const StandardMetronomeScreen({super.key});
@@ -78,6 +81,8 @@ class _StandardMetronomeScreenState
 
   Widget _buildBody(BuildContext context, ThemeData theme, bool isDark,
       MetronomeEngine engine, MetronomeState state) {
+    final rand = ref.watch(randomizerProvider);
+
     if (!_editingBpm) {
       final s = state.bpm.toString();
       if (_bpmController.text != s) _bpmController.text = s;
@@ -106,77 +111,92 @@ class _StandardMetronomeScreenState
               const SizedBox(height: 20),
 
               // ── BPM display ─────────────────────────────────────────────
-              Center(
-                child: SizedBox(
-                  width: 180,
-                  child: TextField(
-                    controller: _bpmController,
-                    focusNode: _bpmFocus,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.indigoNavy,
-                      fontSize: 64,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      filled: false,
-                      suffixText: 'BPM',
-                      suffixStyle: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.lightTextSecondary,
-                        fontWeight: FontWeight.w600,
+              // Hidden entirely while the blind randomizer is active: the
+              // field, the slider, and tap tempo would all leak the secret
+              // tempo (or overwrite it).
+              if (!rand.enabled) ...[
+                Center(
+                  child: SizedBox(
+                    width: 180,
+                    child: TextField(
+                      controller: _bpmController,
+                      focusNode: _bpmFocus,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.indigoNavy,
+                        fontSize: 64,
                       ),
-                      contentPadding: EdgeInsets.zero,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        filled: false,
+                        suffixText: 'BPM',
+                        suffixStyle: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onTap: () => setState(() => _editingBpm = true),
+                      onSubmitted: (v) {
+                        setState(() => _editingBpm = false);
+                        final parsed = int.tryParse(v);
+                        if (parsed != null) {
+                          engine.setBpm(parsed.clamp(
+                              AppConstants.minBpm, AppConstants.maxBpm));
+                        }
+                      },
                     ),
-                    onTap: () => setState(() => _editingBpm = true),
-                    onSubmitted: (v) {
-                      setState(() => _editingBpm = false);
-                      final parsed = int.tryParse(v);
-                      if (parsed != null) {
-                        engine.setBpm(parsed.clamp(
-                            AppConstants.minBpm, AppConstants.maxBpm));
-                      }
-                    },
                   ),
                 ),
-              ),
 
-              // ── BPM Slider ──────────────────────────────────────────────
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: AppColors.indigoNavySoft,
-                  inactiveTrackColor:
-                      isDark ? AppColors.darkDivider : AppColors.lightDivider,
-                  thumbColor: AppColors.indigoNavy,
-                  overlayColor: AppColors.indigoNavySoft.withValues(alpha: 0.2),
-                  trackHeight: 4,
+                // ── BPM Slider ────────────────────────────────────────────
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: AppColors.indigoNavySoft,
+                    inactiveTrackColor:
+                        isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                    thumbColor: AppColors.indigoNavy,
+                    overlayColor:
+                        AppColors.indigoNavySoft.withValues(alpha: 0.2),
+                    trackHeight: 4,
+                  ),
+                  child: Slider(
+                    min: AppConstants.minBpm.toDouble(),
+                    max: AppConstants.maxBpm.toDouble(),
+                    value: state.bpm
+                        .clamp(AppConstants.minBpm, AppConstants.maxBpm)
+                        .toDouble(),
+                    onChanged: (v) => engine.setBpm(v.round()),
+                  ),
                 ),
-                child: Slider(
-                  min: AppConstants.minBpm.toDouble(),
-                  max: AppConstants.maxBpm.toDouble(),
-                  value: state.bpm
-                      .clamp(AppConstants.minBpm, AppConstants.maxBpm)
-                      .toDouble(),
-                  onChanged: (v) => engine.setBpm(v.round()),
-                ),
-              ),
 
-              // ── Tap Tempo ───────────────────────────────────────────────
-              OutlinedButton.icon(
-                onPressed: engine.tapTempo,
-                icon: const Icon(Icons.touch_app, size: 18),
-                label: const Text('Tap Tempo'),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                      color: isDark
-                          ? AppColors.darkDivider
-                          : AppColors.lightDivider),
+                // ── Tap Tempo ─────────────────────────────────────────────
+                OutlinedButton.icon(
+                  onPressed: engine.tapTempo,
+                  icon: const Icon(Icons.touch_app, size: 18),
+                  label: const Text('Tap Tempo'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                        color: isDark
+                            ? AppColors.darkDivider
+                            : AppColors.lightDivider),
+                  ),
                 ),
-              ),
+              ] else ...[
+                _HiddenBpmBlock(
+                  revealed: rand.revealed,
+                  bpm: state.bpm,
+                  isDark: isDark,
+                  onTap: () => ref.read(randomizerProvider.notifier).reveal(),
+                ),
+                const SizedBox(height: 12),
+                _RandomizerControls(baseBpm: rand.baseBpm, isDark: isDark),
+              ],
 
               const SizedBox(height: 20),
 
@@ -255,6 +275,15 @@ class _StandardMetronomeScreenState
                   ),
                 ],
               ),
+
+              const SizedBox(height: 20),
+
+              // ── Training modes ──────────────────────────────────────────
+              _SectionLabel(label: 'Training', theme: theme),
+              const SizedBox(height: 8),
+              _RandomizerToggleCard(isDark: isDark),
+              const SizedBox(height: 8),
+              _CognitiveBreakCard(state: state, isDark: isDark),
 
               const SizedBox(height: 28),
 
@@ -425,4 +454,351 @@ class _LoadingShell extends StatelessWidget {
           ),
         ),
       );
+}
+
+// ── Blind randomizer: hidden BPM block ────────────────────────────────────────
+//
+// While hidden this is a solid near-black container — deliberately unreadable,
+// per the training design: the musician must deduce the tempo by ear. One tap
+// reveals the number in place.
+
+class _HiddenBpmBlock extends StatelessWidget {
+  final bool revealed;
+  final int bpm;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _HiddenBpmBlock({
+    required this.revealed,
+    required this.bpm,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: revealed ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        height: 112,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: revealed
+              ? (isDark ? AppColors.darkCard : AppColors.lightCard)
+              : const Color(0xFF0A0A14),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.streakGold.withValues(alpha: 0.85),
+            width: 1.5,
+          ),
+        ),
+        child: Center(
+          child: revealed
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '$bpm',
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 56,
+                        color: isDark
+                            ? AppColors.darkText
+                            : AppColors.indigoNavy,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'BPM',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.streakGold,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.visibility_off,
+                        color: Colors.white38, size: 30),
+                    const SizedBox(height: 6),
+                    Text(
+                      'TAP TO REVEAL',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.white54,
+                        letterSpacing: 2.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Blind randomizer: base chip + re-roll button ──────────────────────────────
+
+class _RandomizerControls extends ConsumerWidget {
+  final int baseBpm;
+  final bool isDark;
+
+  const _RandomizerControls({required this.baseBpm, required this.isDark});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : AppColors.lightCard,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Base $baseBpm  ±${RandomizerController.range}',
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.icon(
+          onPressed: () =>
+              ref.read(randomizerProvider.notifier).randomizeAgain(),
+          icon: const Icon(Icons.casino, size: 18),
+          label: const Text('Randomize Again'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.indigoNavy,
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Blind randomizer: on/off card ─────────────────────────────────────────────
+
+class _RandomizerToggleCard extends ConsumerWidget {
+  final bool isDark;
+  const _RandomizerToggleCard({required this.isDark});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final rand = ref.watch(randomizerProvider);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.casino_outlined,
+              size: 20, color: AppColors.indigoNavySoft),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Blind BPM Randomizer',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Hidden tempo within ±${RandomizerController.range} of your base',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: rand.enabled,
+            activeColor: AppColors.streakGold,
+            onChanged: (on) {
+              final ctrl = ref.read(randomizerProvider.notifier);
+              on ? ctrl.enable() : ctrl.disable();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Cognitive break card ──────────────────────────────────────────────────────
+//
+// Toggle + duration wheel. The engine owns the actual break; this card just
+// arms it and shows the live countdown while it runs.
+
+class _CognitiveBreakCard extends ConsumerStatefulWidget {
+  final MetronomeState state;
+  final bool isDark;
+  const _CognitiveBreakCard({required this.state, required this.isDark});
+
+  @override
+  ConsumerState<_CognitiveBreakCard> createState() =>
+      _CognitiveBreakCardState();
+}
+
+class _CognitiveBreakCardState extends ConsumerState<_CognitiveBreakCard> {
+  Timer? _countdownTicker;
+
+  @override
+  void dispose() {
+    _countdownTicker?.cancel();
+    super.dispose();
+  }
+
+  void _syncTicker(bool active) {
+    if (active && _countdownTicker == null) {
+      _countdownTicker = Timer.periodic(
+          const Duration(milliseconds: 500), (_) => setState(() {}));
+    } else if (!active && _countdownTicker != null) {
+      _countdownTicker?.cancel();
+      _countdownTicker = null;
+    }
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickDuration() async {
+    final current = ref.read(cognitiveBreakDurationProvider);
+    var picked = current;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor:
+          widget.isDark ? AppColors.darkCard : AppColors.lightCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                children: [
+                  Text('Break Duration',
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      // Enforce a sane floor — a 3-second "break" is a tap
+                      // slip, not a training phase.
+                      if (picked < const Duration(seconds: 15)) {
+                        picked = const Duration(seconds: 15);
+                      }
+                      ref
+                          .read(cognitiveBreakDurationProvider.notifier)
+                          .state = picked;
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Set'),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 190,
+              child: CupertinoTimerPicker(
+                mode: CupertinoTimerPickerMode.ms,
+                initialTimerDuration: current,
+                onTimerDurationChanged: (d) => picked = d,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = widget.isDark;
+    final engine = ref.read(metronomeEngineProvider);
+    final duration = ref.watch(cognitiveBreakDurationProvider);
+    final active = widget.state.cognitiveBreakActive;
+    _syncTicker(active);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.psychology_outlined,
+              size: 20, color: AppColors.indigoNavySoft),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cognitive Break',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  active
+                      ? 'Ends in ${_fmt(engine.cognitiveBreakRemaining)}'
+                      : 'Tempo drift ±3 BPM · surprise dropped beats',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: active
+                        ? AppColors.streakGold
+                        : (isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary),
+                    fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Duration wheel trigger — disabled mid-break (the active phase
+          // runs to its dialed-in end; cancel to change it).
+          TextButton(
+            onPressed: active ? null : _pickDuration,
+            child: Text(_fmt(duration)),
+          ),
+          Switch(
+            value: active,
+            activeColor: AppColors.streakGold,
+            onChanged: (on) {
+              if (on) {
+                // The break needs a running clock to attach to.
+                if (!widget.state.isPlaying) engine.start();
+                engine.startCognitiveBreak(duration);
+              } else {
+                engine.cancelCognitiveBreak();
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

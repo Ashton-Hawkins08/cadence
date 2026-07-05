@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -26,6 +27,8 @@ class MetronomeState {
   final int totalTicks;
   final int currentMeasure;
   final BeatLevel? lastFiredLevel;
+  // Cognitive break training mode (tempo micro-fluctuations + dropped beats)
+  final bool cognitiveBreakActive;
 
   const MetronomeState({
     required this.isPlaying,
@@ -41,6 +44,7 @@ class MetronomeState {
     required this.totalTicks,
     required this.currentMeasure,
     this.lastFiredLevel,
+    this.cognitiveBreakActive = false,
   });
 
   static MetronomeState initial() => const MetronomeState(
@@ -213,6 +217,39 @@ class MetronomeEngine {
   void Function(int sectionIndex)? onSectionChanged;
   void Function()? onPieceComplete;
 
+  // ── Cognitive break mode ───────────────────────────────────────────────────
+  //
+  // Injects ±1-3 BPM micro-fluctuations per measure and occasionally silences
+  // a beat, to break robotic muscle memory. All variance is BAKED INTO a
+  // multi-measure "super-pattern" (scaled multipliers + volume-0 ticks) that
+  // is pushed to the native beat thread ONCE at break start. The native
+  // monotonic clock therefore never resets mid-break — there is no per-beat
+  // channel traffic and zero added jitter on the audio thread.
+  //
+  // The super-pattern is _cbMeasureCount base measures long and loops
+  // natively; the Dart visual timer walks an identical copy so audio and
+  // visuals stay phase-locked through every fluctuation.
+  bool _cognitiveActive = false;
+  List<MetronomeTick> _cbPattern = const []; // varied super-pattern
+  Set<int> _cbDroppedTicks = const {}; // super-pattern indices silenced
+  int _cbMeasureLen = 1; // ticks per base measure inside the super-pattern
+  double _cbEndMs = 0.0; // stopwatch deadline for the break
+  void Function()? onCognitiveBreakEnded;
+  final _cbRng = Random();
+  static const int _cbMeasureCount = 16;
+
+  bool get isCognitiveBreakActive => _cognitiveActive;
+
+  /// Time left in the active break (zero when inactive). The stopwatch pauses
+  /// with the metronome, so pausing playback also pauses the break countdown.
+  Duration get cognitiveBreakRemaining {
+    if (!_cognitiveActive) return Duration.zero;
+    final remain = _cbEndMs - _stopwatch.elapsedMicroseconds / 1000.0;
+    return remain <= 0
+        ? Duration.zero
+        : Duration(milliseconds: remain.round());
+  }
+
   // ── Timing ─────────────────────────────────────────────────────────────────
   final _stopwatch = Stopwatch();
   // Absolute wall-clock ms (relative to _stopwatch) at which the next beat
@@ -319,6 +356,113 @@ class MetronomeEngine {
     }).toList();
   }
 
+  // ── Cognitive break ────────────────────────────────────────────────────────
+
+  /// Builds the varied super-pattern: [_cbMeasureCount] copies of the base
+  /// measure, each with its own tempo micro-fluctuation and (sometimes) one
+  /// silenced beat. Returns the Dart-side ticks, the native tick maps, and
+  /// the set of silenced super-pattern indices.
+  ({
+    List<MetronomeTick> pattern,
+    List<Map<String, dynamic>> native,
+    Set<int> dropped,
+  }) _buildCognitiveSuperPattern() {
+    final base = _pattern;
+    final baseNative = _buildNativeTicks();
+    final pat = <MetronomeTick>[];
+    final nat = <Map<String, dynamic>>[];
+    final dropped = <int>{};
+
+    for (var m = 0; m < _cbMeasureCount; m++) {
+      // ±1–3 BPM per measure, never 0 — every measure breathes slightly.
+      final magnitude = 1 + _cbRng.nextInt(3);
+      var delta = _cbRng.nextBool() ? magnitude : -magnitude;
+      if (_bpm + delta < AppConstants.minBpm) delta = magnitude;
+      // Encode the fluctuation as a multiplier scale so the native thread's
+      // BPM value never changes: interval = mult × 60000/bpm, so scaling
+      // mult by bpm/(bpm+delta) plays the measure at exactly (bpm+delta).
+      final scale = _bpm / (_bpm + delta);
+
+      // ~30% of measures lose one beat entirely (never the very first
+      // measure — the player needs to lock in before beats start vanishing).
+      var dropIdx = -1;
+      if (m > 0 && _cbRng.nextDouble() < 0.30) {
+        final beatIdxs = [
+          for (var i = 0; i < base.length; i++)
+            if (base[i].level != BeatLevel.subdivision) i
+        ];
+        if (beatIdxs.isNotEmpty) {
+          dropIdx = beatIdxs[_cbRng.nextInt(beatIdxs.length)];
+        }
+      }
+
+      for (var i = 0; i < base.length; i++) {
+        final superIdx = m * base.length + i;
+        pat.add(MetronomeTick(
+            base[i].quarterNoteMultiplier * scale, base[i].level));
+        final n = Map<String, dynamic>.from(baseNative[i]);
+        n['multiplier'] = base[i].quarterNoteMultiplier * scale;
+        if (i == dropIdx) {
+          n['volume'] = 0.0; // beat exists in time, but is silent
+          dropped.add(superIdx);
+        }
+        nat.add(n);
+      }
+    }
+    return (pattern: pat, native: nat, dropped: dropped);
+  }
+
+  /// Starts a cognitive break for [duration]. Requires active playback.
+  /// Not available in piece mode — a piece roadmap owns the pattern there.
+  void startCognitiveBreak(Duration duration) {
+    if (!_isPlaying || _pattern.isEmpty || duration <= Duration.zero) return;
+    if (_sections != null) return;
+    final built = _buildCognitiveSuperPattern();
+    _cbPattern = built.pattern;
+    _cbDroppedTicks = built.dropped;
+    _cbMeasureLen = _pattern.length;
+    _cognitiveActive = true;
+    final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
+    _cbEndMs = nowMs + duration.inMilliseconds;
+    _tickIndex = 0;
+    _visualBeatIndex = 0;
+    _nextBeatMs = nowMs; // native resets to "now" on updatePattern — mirror it
+    if (_usesNativeTiming) {
+      _native.updatePattern(_bpm, built.native);
+    }
+    _emit();
+  }
+
+  /// Ends the break and restores the normal pattern. [restoreNative] is false
+  /// when the caller is about to push its own pattern anyway (e.g. a time
+  /// signature change mid-break).
+  void _endCognitiveBreak({bool restoreNative = true}) {
+    if (!_cognitiveActive) return;
+    _cognitiveActive = false;
+    _cbPattern = const [];
+    _cbDroppedTicks = const {};
+    _tickIndex = 0;
+    _visualBeatIndex = 0;
+    if (restoreNative && _isPlaying && _usesNativeTiming) {
+      _nextBeatMs = _stopwatch.elapsedMicroseconds / 1000.0;
+      _native.updatePattern(_bpm, _buildNativeTicks());
+    }
+    onCognitiveBreakEnded?.call();
+  }
+
+  /// User-facing cancel (toggle off before the timer expires).
+  void cancelCognitiveBreak() {
+    _endCognitiveBreak();
+    _emit();
+  }
+
+  // The pattern/measure the timing loop actually walks: the varied
+  // super-pattern during a break, the plain single measure otherwise.
+  List<MetronomeTick> get _livePattern =>
+      _cognitiveActive ? _cbPattern : _pattern;
+  int get _liveMeasureLen =>
+      _cognitiveActive ? _cbMeasureLen : _pattern.length;
+
   void start({List<SectionConfig>? sections}) {
     if (_isPlaying) stop();
     _sections = sections;
@@ -370,6 +514,11 @@ class MetronomeEngine {
     if (_usesNativeTiming) {
       _native.stop();
     }
+    // Clear any cognitive break inline — the native thread is stopping, so
+    // no pattern restore is needed.
+    _cognitiveActive = false;
+    _cbPattern = const [];
+    _cbDroppedTicks = const {};
     _isPlaying = false;
     _isPaused = false;
     _tickIndex = 0;
@@ -413,6 +562,9 @@ class MetronomeEngine {
   }
 
   void setTimeSignature(MetronomeTimeSignature ts) {
+    // A pattern change invalidates the break's super-pattern — end it first
+    // (no native restore; we push the new pattern below anyway).
+    _endCognitiveBreak(restoreNative: false);
     _timeSignature = ts;
     final subs = ts.availableSubdivisions;
     if (!subs.contains(_subdivision)) _subdivision = subs.first;
@@ -429,6 +581,7 @@ class MetronomeEngine {
   }
 
   void setSubdivision(MetronomeSubdivision sub) {
+    _endCognitiveBreak(restoreNative: false);
     _subdivision = sub;
     _rebuildPattern();
     _tickIndex = 0;
@@ -443,6 +596,7 @@ class MetronomeEngine {
   }
 
   void setAccentFirstBeat(bool value) {
+    _endCognitiveBreak(restoreNative: false);
     _accentFirstBeat = value;
     if (_isPlaying && !_isPaused) {
       _nextBeatMs = _stopwatch.elapsedMicroseconds / 1000.0;
@@ -506,12 +660,18 @@ class MetronomeEngine {
       if (!_isPlaying) return;
     }
 
-    final tick = _pattern[_tickIndex];
+    // During a cognitive break the loop walks the varied super-pattern
+    // (16 measures with scaled multipliers); otherwise the plain measure.
+    final pattern = _livePattern;
+    if (pattern.isEmpty) return;
+    if (_tickIndex >= pattern.length) _tickIndex = 0;
+
+    final tick = pattern[_tickIndex];
     final firedIndex = _tickIndex;
     final quarterMs = 60000.0 / _bpm;
     final intervalMs = tick.quarterNoteMultiplier * quarterMs;
 
-    _playTick(tick.level);
+    _playTick(tick.level, tickIndex: firedIndex);
 
     if (tick.level == BeatLevel.downbeat) {
       _visualBeatIndex = 0;
@@ -520,13 +680,23 @@ class MetronomeEngine {
     }
 
     _tickIndex++;
-    if (_tickIndex >= _pattern.length) {
-      _tickIndex = 0;
-      _pendingMeasureIncrement = true;
-    }
+    // A measure ends every _liveMeasureLen ticks. For the normal pattern
+    // that is exactly the pattern length (unchanged behavior); inside a
+    // super-pattern it marks each embedded measure.
+    final measureBoundary = _tickIndex % _liveMeasureLen == 0;
+    if (_tickIndex >= pattern.length) _tickIndex = 0;
+    if (measureBoundary) _pendingMeasureIncrement = true;
 
     _firedTickIndex = firedIndex;
     _nextBeatMs += intervalMs;
+
+    // Cognitive break expiry: always exits on a measure boundary so the
+    // restored normal pattern begins cleanly on a downbeat.
+    if (_cognitiveActive && measureBoundary && nowMs >= _cbEndMs) {
+      _endCognitiveBreak();
+      _emit(lastFiredLevel: tick.level);
+      return;
+    }
 
     // If the Dart event loop was delayed past the next deadline, fast-forward
     // the tick counter to stay in phase with the native beat thread.
@@ -536,7 +706,7 @@ class MetronomeEngine {
     // advancing the deadline is correct.
     if (_usesNativeTiming) {
       while (nowMs >= _nextBeatMs) {
-        final skipped = _pattern[_tickIndex];
+        final skipped = pattern[_tickIndex];
         if (skipped.level == BeatLevel.downbeat) {
           _visualBeatIndex = 0;
         } else if (skipped.level == BeatLevel.beat) {
@@ -544,10 +714,9 @@ class MetronomeEngine {
         }
         _nextBeatMs += skipped.quarterNoteMultiplier * (60000.0 / _bpm);
         _tickIndex++;
-        if (_tickIndex >= _pattern.length) {
-          _tickIndex = 0;
-          _pendingMeasureIncrement = true;
-        }
+        final skippedBoundary = _tickIndex % _liveMeasureLen == 0;
+        if (_tickIndex >= pattern.length) _tickIndex = 0;
+        if (skippedBoundary) _pendingMeasureIncrement = true;
       }
     } else {
       if (nowMs >= _nextBeatMs) {
@@ -577,6 +746,7 @@ class MetronomeEngine {
   }
 
   void _applySectionConfig(SectionConfig cfg) {
+    _endCognitiveBreak(restoreNative: false);
     _bpm = cfg.bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
     _timeSignature = cfg.timeSignature;
     _subdivision = cfg.subdivision;
@@ -590,10 +760,13 @@ class MetronomeEngine {
     }
   }
 
-  void _playTick(BeatLevel level) {
+  void _playTick(BeatLevel level, {int tickIndex = -1}) {
     if (!_audioReady) return;
     // On Android/Windows the native beat thread owns audio — skip here.
     if (_usesNativeTiming) return;
+    // Cognitive break: dropped beats exist in time but stay silent. (On
+    // native platforms the same drop is a volume-0 tick in the super-pattern.)
+    if (_cognitiveActive && _cbDroppedTicks.contains(tickIndex)) return;
 
     BeatLevel effective = level;
     if (level == BeatLevel.downbeat && !_accentFirstBeat) {
@@ -622,9 +795,10 @@ class MetronomeEngine {
       visualBeatIndex: _visualBeatIndex,
       visualTotalBeats: _visualTotalBeats,
       currentTickIndex: _firedTickIndex,
-      totalTicks: _pattern.length,
+      totalTicks: _livePattern.length,
       currentMeasure: _currentMeasure,
       lastFiredLevel: lastFiredLevel,
+      cognitiveBreakActive: _cognitiveActive,
     ));
   }
 
