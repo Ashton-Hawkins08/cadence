@@ -112,6 +112,47 @@ class PieceSections extends Table {
       boolean().withDefault(const Constant(true))();
 }
 
+// ─── Sheet Music Vault ────────────────────────────────────────────────────────
+//
+// Score folders hold imported page images plus everything the rehearsal
+// canvas needs: vector annotations (serialized stroke JSON — never bitmaps),
+// measure-triggered page turns, and an optional link to a MetronomePiece
+// whose section roadmap drives tempo/time-signature changes during playback.
+
+class ScoreFolders extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(max: 100)();
+  // Optional link to a MetronomePieces row — the piece map for this score.
+  IntColumn get linkedPieceId => integer().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
+class ScorePages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get folderId => integer()();
+  IntColumn get sortOrder => integer()();
+  TextColumn get name => text().withLength(max: 60)();
+  // Absolute path of the copied image inside app documents (scores/f<id>/…)
+  TextColumn get imagePath => text()();
+}
+
+class ScorePageTurns extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get folderId => integer()();
+  // When the metronome's measure counter reaches [measure], the viewer
+  // animates to [pageIndex] (0-based position in the folder's sort order).
+  IntColumn get measure => integer()();
+  IntColumn get pageIndex => integer()();
+}
+
+class ScoreAnnotations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get pageId => integer()();
+  // JSON array of vector strokes in image-normalized coordinates.
+  // See ScoreStroke in domain/models/score_annotation.dart.
+  TextColumn get strokesJson => text()();
+}
+
 // ─── Practice Audit Log (tamper-evident) ─────────────────────────────────────
 //
 // Auto-recorded metronome sessions forming a SHA-256 hash chain: each row's
@@ -151,12 +192,16 @@ class AuditSessions extends Table {
   MetronomePieces,
   PieceSections,
   AuditSessions,
+  ScoreFolders,
+  ScorePages,
+  ScorePageTurns,
+  ScoreAnnotations,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -178,6 +223,12 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 6) {
             await m.createTable(auditSessions);
+          }
+          if (from < 7) {
+            await m.createTable(scoreFolders);
+            await m.createTable(scorePages);
+            await m.createTable(scorePageTurns);
+            await m.createTable(scoreAnnotations);
           }
         },
       );

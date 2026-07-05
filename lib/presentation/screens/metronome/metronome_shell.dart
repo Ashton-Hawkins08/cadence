@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/presentation/providers/metronome_provider.dart';
 import 'package:cadence/presentation/screens/tuner/tuner_screen.dart';
+import 'package:cadence/presentation/screens/scores/scores_screen.dart';
 import 'standard_metronome_screen.dart';
 import 'piece_builder/piece_list_screen.dart';
 
 // Which tab is active inside the metronome module
-enum _MetronomeTab { standard, pieceBuilder, tuner }
+enum _MetronomeTab { standard, pieceBuilder, scores, tuner }
 
 class MetronomeShell extends ConsumerStatefulWidget {
   const MetronomeShell({super.key});
@@ -36,6 +37,7 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
         children: const [
           StandardMetronomeScreen(),
           PieceListScreen(),
+          ScoresScreen(),
           TunerScreen(),
         ],
       ),
@@ -87,6 +89,18 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
                 inactiveColor: inactiveColor,
                 onTap: () =>
                     setState(() => _tab = _MetronomeTab.pieceBuilder),
+              ),
+            ),
+
+            // Scores — sheet music vault + rehearsal canvas
+            Expanded(
+              child: _NavButton(
+                icon: Icons.menu_book_outlined,
+                label: 'Scores',
+                active: _tab == _MetronomeTab.scores,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => setState(() => _tab = _MetronomeTab.scores),
               ),
             ),
 

@@ -5076,6 +5076,1218 @@ class AuditSessionsCompanion extends UpdateCompanion<AuditSession> {
   }
 }
 
+class $ScoreFoldersTable extends ScoreFolders
+    with TableInfo<$ScoreFoldersTable, ScoreFolder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ScoreFoldersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _linkedPieceIdMeta = const VerificationMeta(
+    'linkedPieceId',
+  );
+  @override
+  late final GeneratedColumn<int> linkedPieceId = GeneratedColumn<int>(
+    'linked_piece_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, linkedPieceId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'score_folders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ScoreFolder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('linked_piece_id')) {
+      context.handle(
+        _linkedPieceIdMeta,
+        linkedPieceId.isAcceptableOrUnknown(
+          data['linked_piece_id']!,
+          _linkedPieceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ScoreFolder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ScoreFolder(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      linkedPieceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}linked_piece_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ScoreFoldersTable createAlias(String alias) {
+    return $ScoreFoldersTable(attachedDatabase, alias);
+  }
+}
+
+class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
+  final int id;
+  final String name;
+  final int? linkedPieceId;
+  final DateTime createdAt;
+  const ScoreFolder({
+    required this.id,
+    required this.name,
+    this.linkedPieceId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || linkedPieceId != null) {
+      map['linked_piece_id'] = Variable<int>(linkedPieceId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ScoreFoldersCompanion toCompanion(bool nullToAbsent) {
+    return ScoreFoldersCompanion(
+      id: Value(id),
+      name: Value(name),
+      linkedPieceId: linkedPieceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedPieceId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ScoreFolder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ScoreFolder(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      linkedPieceId: serializer.fromJson<int?>(json['linkedPieceId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'linkedPieceId': serializer.toJson<int?>(linkedPieceId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ScoreFolder copyWith({
+    int? id,
+    String? name,
+    Value<int?> linkedPieceId = const Value.absent(),
+    DateTime? createdAt,
+  }) => ScoreFolder(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    linkedPieceId: linkedPieceId.present
+        ? linkedPieceId.value
+        : this.linkedPieceId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ScoreFolder copyWithCompanion(ScoreFoldersCompanion data) {
+    return ScoreFolder(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      linkedPieceId: data.linkedPieceId.present
+          ? data.linkedPieceId.value
+          : this.linkedPieceId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScoreFolder(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('linkedPieceId: $linkedPieceId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, linkedPieceId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ScoreFolder &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.linkedPieceId == this.linkedPieceId &&
+          other.createdAt == this.createdAt);
+}
+
+class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int?> linkedPieceId;
+  final Value<DateTime> createdAt;
+  const ScoreFoldersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.linkedPieceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  ScoreFoldersCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.linkedPieceId = const Value.absent(),
+    required DateTime createdAt,
+  }) : name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<ScoreFolder> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? linkedPieceId,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (linkedPieceId != null) 'linked_piece_id': linkedPieceId,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  ScoreFoldersCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int?>? linkedPieceId,
+    Value<DateTime>? createdAt,
+  }) {
+    return ScoreFoldersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      linkedPieceId: linkedPieceId ?? this.linkedPieceId,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (linkedPieceId.present) {
+      map['linked_piece_id'] = Variable<int>(linkedPieceId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScoreFoldersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('linkedPieceId: $linkedPieceId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ScorePagesTable extends ScorePages
+    with TableInfo<$ScorePagesTable, ScorePage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ScorePagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _folderIdMeta = const VerificationMeta(
+    'folderId',
+  );
+  @override
+  late final GeneratedColumn<int> folderId = GeneratedColumn<int>(
+    'folder_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 60),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _imagePathMeta = const VerificationMeta(
+    'imagePath',
+  );
+  @override
+  late final GeneratedColumn<String> imagePath = GeneratedColumn<String>(
+    'image_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    folderId,
+    sortOrder,
+    name,
+    imagePath,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'score_pages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ScorePage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('folder_id')) {
+      context.handle(
+        _folderIdMeta,
+        folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_folderIdMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('image_path')) {
+      context.handle(
+        _imagePathMeta,
+        imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_imagePathMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ScorePage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ScorePage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      folderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}folder_id'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      imagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_path'],
+      )!,
+    );
+  }
+
+  @override
+  $ScorePagesTable createAlias(String alias) {
+    return $ScorePagesTable(attachedDatabase, alias);
+  }
+}
+
+class ScorePage extends DataClass implements Insertable<ScorePage> {
+  final int id;
+  final int folderId;
+  final int sortOrder;
+  final String name;
+  final String imagePath;
+  const ScorePage({
+    required this.id,
+    required this.folderId,
+    required this.sortOrder,
+    required this.name,
+    required this.imagePath,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['folder_id'] = Variable<int>(folderId);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['name'] = Variable<String>(name);
+    map['image_path'] = Variable<String>(imagePath);
+    return map;
+  }
+
+  ScorePagesCompanion toCompanion(bool nullToAbsent) {
+    return ScorePagesCompanion(
+      id: Value(id),
+      folderId: Value(folderId),
+      sortOrder: Value(sortOrder),
+      name: Value(name),
+      imagePath: Value(imagePath),
+    );
+  }
+
+  factory ScorePage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ScorePage(
+      id: serializer.fromJson<int>(json['id']),
+      folderId: serializer.fromJson<int>(json['folderId']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      name: serializer.fromJson<String>(json['name']),
+      imagePath: serializer.fromJson<String>(json['imagePath']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'folderId': serializer.toJson<int>(folderId),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'name': serializer.toJson<String>(name),
+      'imagePath': serializer.toJson<String>(imagePath),
+    };
+  }
+
+  ScorePage copyWith({
+    int? id,
+    int? folderId,
+    int? sortOrder,
+    String? name,
+    String? imagePath,
+  }) => ScorePage(
+    id: id ?? this.id,
+    folderId: folderId ?? this.folderId,
+    sortOrder: sortOrder ?? this.sortOrder,
+    name: name ?? this.name,
+    imagePath: imagePath ?? this.imagePath,
+  );
+  ScorePage copyWithCompanion(ScorePagesCompanion data) {
+    return ScorePage(
+      id: data.id.present ? data.id.value : this.id,
+      folderId: data.folderId.present ? data.folderId.value : this.folderId,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      name: data.name.present ? data.name.value : this.name,
+      imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScorePage(')
+          ..write('id: $id, ')
+          ..write('folderId: $folderId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, folderId, sortOrder, name, imagePath);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ScorePage &&
+          other.id == this.id &&
+          other.folderId == this.folderId &&
+          other.sortOrder == this.sortOrder &&
+          other.name == this.name &&
+          other.imagePath == this.imagePath);
+}
+
+class ScorePagesCompanion extends UpdateCompanion<ScorePage> {
+  final Value<int> id;
+  final Value<int> folderId;
+  final Value<int> sortOrder;
+  final Value<String> name;
+  final Value<String> imagePath;
+  const ScorePagesCompanion({
+    this.id = const Value.absent(),
+    this.folderId = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.name = const Value.absent(),
+    this.imagePath = const Value.absent(),
+  });
+  ScorePagesCompanion.insert({
+    this.id = const Value.absent(),
+    required int folderId,
+    required int sortOrder,
+    required String name,
+    required String imagePath,
+  }) : folderId = Value(folderId),
+       sortOrder = Value(sortOrder),
+       name = Value(name),
+       imagePath = Value(imagePath);
+  static Insertable<ScorePage> custom({
+    Expression<int>? id,
+    Expression<int>? folderId,
+    Expression<int>? sortOrder,
+    Expression<String>? name,
+    Expression<String>? imagePath,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (folderId != null) 'folder_id': folderId,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (name != null) 'name': name,
+      if (imagePath != null) 'image_path': imagePath,
+    });
+  }
+
+  ScorePagesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? folderId,
+    Value<int>? sortOrder,
+    Value<String>? name,
+    Value<String>? imagePath,
+  }) {
+    return ScorePagesCompanion(
+      id: id ?? this.id,
+      folderId: folderId ?? this.folderId,
+      sortOrder: sortOrder ?? this.sortOrder,
+      name: name ?? this.name,
+      imagePath: imagePath ?? this.imagePath,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (folderId.present) {
+      map['folder_id'] = Variable<int>(folderId.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (imagePath.present) {
+      map['image_path'] = Variable<String>(imagePath.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScorePagesCompanion(')
+          ..write('id: $id, ')
+          ..write('folderId: $folderId, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ScorePageTurnsTable extends ScorePageTurns
+    with TableInfo<$ScorePageTurnsTable, ScorePageTurn> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ScorePageTurnsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _folderIdMeta = const VerificationMeta(
+    'folderId',
+  );
+  @override
+  late final GeneratedColumn<int> folderId = GeneratedColumn<int>(
+    'folder_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _measureMeta = const VerificationMeta(
+    'measure',
+  );
+  @override
+  late final GeneratedColumn<int> measure = GeneratedColumn<int>(
+    'measure',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageIndexMeta = const VerificationMeta(
+    'pageIndex',
+  );
+  @override
+  late final GeneratedColumn<int> pageIndex = GeneratedColumn<int>(
+    'page_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, folderId, measure, pageIndex];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'score_page_turns';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ScorePageTurn> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('folder_id')) {
+      context.handle(
+        _folderIdMeta,
+        folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_folderIdMeta);
+    }
+    if (data.containsKey('measure')) {
+      context.handle(
+        _measureMeta,
+        measure.isAcceptableOrUnknown(data['measure']!, _measureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_measureMeta);
+    }
+    if (data.containsKey('page_index')) {
+      context.handle(
+        _pageIndexMeta,
+        pageIndex.isAcceptableOrUnknown(data['page_index']!, _pageIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageIndexMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ScorePageTurn map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ScorePageTurn(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      folderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}folder_id'],
+      )!,
+      measure: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}measure'],
+      )!,
+      pageIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page_index'],
+      )!,
+    );
+  }
+
+  @override
+  $ScorePageTurnsTable createAlias(String alias) {
+    return $ScorePageTurnsTable(attachedDatabase, alias);
+  }
+}
+
+class ScorePageTurn extends DataClass implements Insertable<ScorePageTurn> {
+  final int id;
+  final int folderId;
+  final int measure;
+  final int pageIndex;
+  const ScorePageTurn({
+    required this.id,
+    required this.folderId,
+    required this.measure,
+    required this.pageIndex,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['folder_id'] = Variable<int>(folderId);
+    map['measure'] = Variable<int>(measure);
+    map['page_index'] = Variable<int>(pageIndex);
+    return map;
+  }
+
+  ScorePageTurnsCompanion toCompanion(bool nullToAbsent) {
+    return ScorePageTurnsCompanion(
+      id: Value(id),
+      folderId: Value(folderId),
+      measure: Value(measure),
+      pageIndex: Value(pageIndex),
+    );
+  }
+
+  factory ScorePageTurn.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ScorePageTurn(
+      id: serializer.fromJson<int>(json['id']),
+      folderId: serializer.fromJson<int>(json['folderId']),
+      measure: serializer.fromJson<int>(json['measure']),
+      pageIndex: serializer.fromJson<int>(json['pageIndex']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'folderId': serializer.toJson<int>(folderId),
+      'measure': serializer.toJson<int>(measure),
+      'pageIndex': serializer.toJson<int>(pageIndex),
+    };
+  }
+
+  ScorePageTurn copyWith({
+    int? id,
+    int? folderId,
+    int? measure,
+    int? pageIndex,
+  }) => ScorePageTurn(
+    id: id ?? this.id,
+    folderId: folderId ?? this.folderId,
+    measure: measure ?? this.measure,
+    pageIndex: pageIndex ?? this.pageIndex,
+  );
+  ScorePageTurn copyWithCompanion(ScorePageTurnsCompanion data) {
+    return ScorePageTurn(
+      id: data.id.present ? data.id.value : this.id,
+      folderId: data.folderId.present ? data.folderId.value : this.folderId,
+      measure: data.measure.present ? data.measure.value : this.measure,
+      pageIndex: data.pageIndex.present ? data.pageIndex.value : this.pageIndex,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScorePageTurn(')
+          ..write('id: $id, ')
+          ..write('folderId: $folderId, ')
+          ..write('measure: $measure, ')
+          ..write('pageIndex: $pageIndex')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, folderId, measure, pageIndex);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ScorePageTurn &&
+          other.id == this.id &&
+          other.folderId == this.folderId &&
+          other.measure == this.measure &&
+          other.pageIndex == this.pageIndex);
+}
+
+class ScorePageTurnsCompanion extends UpdateCompanion<ScorePageTurn> {
+  final Value<int> id;
+  final Value<int> folderId;
+  final Value<int> measure;
+  final Value<int> pageIndex;
+  const ScorePageTurnsCompanion({
+    this.id = const Value.absent(),
+    this.folderId = const Value.absent(),
+    this.measure = const Value.absent(),
+    this.pageIndex = const Value.absent(),
+  });
+  ScorePageTurnsCompanion.insert({
+    this.id = const Value.absent(),
+    required int folderId,
+    required int measure,
+    required int pageIndex,
+  }) : folderId = Value(folderId),
+       measure = Value(measure),
+       pageIndex = Value(pageIndex);
+  static Insertable<ScorePageTurn> custom({
+    Expression<int>? id,
+    Expression<int>? folderId,
+    Expression<int>? measure,
+    Expression<int>? pageIndex,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (folderId != null) 'folder_id': folderId,
+      if (measure != null) 'measure': measure,
+      if (pageIndex != null) 'page_index': pageIndex,
+    });
+  }
+
+  ScorePageTurnsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? folderId,
+    Value<int>? measure,
+    Value<int>? pageIndex,
+  }) {
+    return ScorePageTurnsCompanion(
+      id: id ?? this.id,
+      folderId: folderId ?? this.folderId,
+      measure: measure ?? this.measure,
+      pageIndex: pageIndex ?? this.pageIndex,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (folderId.present) {
+      map['folder_id'] = Variable<int>(folderId.value);
+    }
+    if (measure.present) {
+      map['measure'] = Variable<int>(measure.value);
+    }
+    if (pageIndex.present) {
+      map['page_index'] = Variable<int>(pageIndex.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScorePageTurnsCompanion(')
+          ..write('id: $id, ')
+          ..write('folderId: $folderId, ')
+          ..write('measure: $measure, ')
+          ..write('pageIndex: $pageIndex')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ScoreAnnotationsTable extends ScoreAnnotations
+    with TableInfo<$ScoreAnnotationsTable, ScoreAnnotation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ScoreAnnotationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _pageIdMeta = const VerificationMeta('pageId');
+  @override
+  late final GeneratedColumn<int> pageId = GeneratedColumn<int>(
+    'page_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _strokesJsonMeta = const VerificationMeta(
+    'strokesJson',
+  );
+  @override
+  late final GeneratedColumn<String> strokesJson = GeneratedColumn<String>(
+    'strokes_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, pageId, strokesJson];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'score_annotations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ScoreAnnotation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('page_id')) {
+      context.handle(
+        _pageIdMeta,
+        pageId.isAcceptableOrUnknown(data['page_id']!, _pageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageIdMeta);
+    }
+    if (data.containsKey('strokes_json')) {
+      context.handle(
+        _strokesJsonMeta,
+        strokesJson.isAcceptableOrUnknown(
+          data['strokes_json']!,
+          _strokesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_strokesJsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ScoreAnnotation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ScoreAnnotation(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      pageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page_id'],
+      )!,
+      strokesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}strokes_json'],
+      )!,
+    );
+  }
+
+  @override
+  $ScoreAnnotationsTable createAlias(String alias) {
+    return $ScoreAnnotationsTable(attachedDatabase, alias);
+  }
+}
+
+class ScoreAnnotation extends DataClass implements Insertable<ScoreAnnotation> {
+  final int id;
+  final int pageId;
+  final String strokesJson;
+  const ScoreAnnotation({
+    required this.id,
+    required this.pageId,
+    required this.strokesJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['page_id'] = Variable<int>(pageId);
+    map['strokes_json'] = Variable<String>(strokesJson);
+    return map;
+  }
+
+  ScoreAnnotationsCompanion toCompanion(bool nullToAbsent) {
+    return ScoreAnnotationsCompanion(
+      id: Value(id),
+      pageId: Value(pageId),
+      strokesJson: Value(strokesJson),
+    );
+  }
+
+  factory ScoreAnnotation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ScoreAnnotation(
+      id: serializer.fromJson<int>(json['id']),
+      pageId: serializer.fromJson<int>(json['pageId']),
+      strokesJson: serializer.fromJson<String>(json['strokesJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'pageId': serializer.toJson<int>(pageId),
+      'strokesJson': serializer.toJson<String>(strokesJson),
+    };
+  }
+
+  ScoreAnnotation copyWith({int? id, int? pageId, String? strokesJson}) =>
+      ScoreAnnotation(
+        id: id ?? this.id,
+        pageId: pageId ?? this.pageId,
+        strokesJson: strokesJson ?? this.strokesJson,
+      );
+  ScoreAnnotation copyWithCompanion(ScoreAnnotationsCompanion data) {
+    return ScoreAnnotation(
+      id: data.id.present ? data.id.value : this.id,
+      pageId: data.pageId.present ? data.pageId.value : this.pageId,
+      strokesJson: data.strokesJson.present
+          ? data.strokesJson.value
+          : this.strokesJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScoreAnnotation(')
+          ..write('id: $id, ')
+          ..write('pageId: $pageId, ')
+          ..write('strokesJson: $strokesJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, pageId, strokesJson);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ScoreAnnotation &&
+          other.id == this.id &&
+          other.pageId == this.pageId &&
+          other.strokesJson == this.strokesJson);
+}
+
+class ScoreAnnotationsCompanion extends UpdateCompanion<ScoreAnnotation> {
+  final Value<int> id;
+  final Value<int> pageId;
+  final Value<String> strokesJson;
+  const ScoreAnnotationsCompanion({
+    this.id = const Value.absent(),
+    this.pageId = const Value.absent(),
+    this.strokesJson = const Value.absent(),
+  });
+  ScoreAnnotationsCompanion.insert({
+    this.id = const Value.absent(),
+    required int pageId,
+    required String strokesJson,
+  }) : pageId = Value(pageId),
+       strokesJson = Value(strokesJson);
+  static Insertable<ScoreAnnotation> custom({
+    Expression<int>? id,
+    Expression<int>? pageId,
+    Expression<String>? strokesJson,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (pageId != null) 'page_id': pageId,
+      if (strokesJson != null) 'strokes_json': strokesJson,
+    });
+  }
+
+  ScoreAnnotationsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? pageId,
+    Value<String>? strokesJson,
+  }) {
+    return ScoreAnnotationsCompanion(
+      id: id ?? this.id,
+      pageId: pageId ?? this.pageId,
+      strokesJson: strokesJson ?? this.strokesJson,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (pageId.present) {
+      map['page_id'] = Variable<int>(pageId.value);
+    }
+    if (strokesJson.present) {
+      map['strokes_json'] = Variable<String>(strokesJson.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ScoreAnnotationsCompanion(')
+          ..write('id: $id, ')
+          ..write('pageId: $pageId, ')
+          ..write('strokesJson: $strokesJson')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5094,6 +6306,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $PieceSectionsTable pieceSections = $PieceSectionsTable(this);
   late final $AuditSessionsTable auditSessions = $AuditSessionsTable(this);
+  late final $ScoreFoldersTable scoreFolders = $ScoreFoldersTable(this);
+  late final $ScorePagesTable scorePages = $ScorePagesTable(this);
+  late final $ScorePageTurnsTable scorePageTurns = $ScorePageTurnsTable(this);
+  late final $ScoreAnnotationsTable scoreAnnotations = $ScoreAnnotationsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5111,6 +6329,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     metronomePieces,
     pieceSections,
     auditSessions,
+    scoreFolders,
+    scorePages,
+    scorePageTurns,
+    scoreAnnotations,
   ];
 }
 
@@ -7812,6 +9034,715 @@ typedef $$AuditSessionsTableProcessedTableManager =
       AuditSession,
       PrefetchHooks Function()
     >;
+typedef $$ScoreFoldersTableCreateCompanionBuilder =
+    ScoreFoldersCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<int?> linkedPieceId,
+      required DateTime createdAt,
+    });
+typedef $$ScoreFoldersTableUpdateCompanionBuilder =
+    ScoreFoldersCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int?> linkedPieceId,
+      Value<DateTime> createdAt,
+    });
+
+class $$ScoreFoldersTableFilterComposer
+    extends Composer<_$AppDatabase, $ScoreFoldersTable> {
+  $$ScoreFoldersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get linkedPieceId => $composableBuilder(
+    column: $table.linkedPieceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ScoreFoldersTableOrderingComposer
+    extends Composer<_$AppDatabase, $ScoreFoldersTable> {
+  $$ScoreFoldersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get linkedPieceId => $composableBuilder(
+    column: $table.linkedPieceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ScoreFoldersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ScoreFoldersTable> {
+  $$ScoreFoldersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get linkedPieceId => $composableBuilder(
+    column: $table.linkedPieceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ScoreFoldersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ScoreFoldersTable,
+          ScoreFolder,
+          $$ScoreFoldersTableFilterComposer,
+          $$ScoreFoldersTableOrderingComposer,
+          $$ScoreFoldersTableAnnotationComposer,
+          $$ScoreFoldersTableCreateCompanionBuilder,
+          $$ScoreFoldersTableUpdateCompanionBuilder,
+          (
+            ScoreFolder,
+            BaseReferences<_$AppDatabase, $ScoreFoldersTable, ScoreFolder>,
+          ),
+          ScoreFolder,
+          PrefetchHooks Function()
+        > {
+  $$ScoreFoldersTableTableManager(_$AppDatabase db, $ScoreFoldersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ScoreFoldersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ScoreFoldersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ScoreFoldersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> linkedPieceId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => ScoreFoldersCompanion(
+                id: id,
+                name: name,
+                linkedPieceId: linkedPieceId,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<int?> linkedPieceId = const Value.absent(),
+                required DateTime createdAt,
+              }) => ScoreFoldersCompanion.insert(
+                id: id,
+                name: name,
+                linkedPieceId: linkedPieceId,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ScoreFoldersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ScoreFoldersTable,
+      ScoreFolder,
+      $$ScoreFoldersTableFilterComposer,
+      $$ScoreFoldersTableOrderingComposer,
+      $$ScoreFoldersTableAnnotationComposer,
+      $$ScoreFoldersTableCreateCompanionBuilder,
+      $$ScoreFoldersTableUpdateCompanionBuilder,
+      (
+        ScoreFolder,
+        BaseReferences<_$AppDatabase, $ScoreFoldersTable, ScoreFolder>,
+      ),
+      ScoreFolder,
+      PrefetchHooks Function()
+    >;
+typedef $$ScorePagesTableCreateCompanionBuilder =
+    ScorePagesCompanion Function({
+      Value<int> id,
+      required int folderId,
+      required int sortOrder,
+      required String name,
+      required String imagePath,
+    });
+typedef $$ScorePagesTableUpdateCompanionBuilder =
+    ScorePagesCompanion Function({
+      Value<int> id,
+      Value<int> folderId,
+      Value<int> sortOrder,
+      Value<String> name,
+      Value<String> imagePath,
+    });
+
+class $$ScorePagesTableFilterComposer
+    extends Composer<_$AppDatabase, $ScorePagesTable> {
+  $$ScorePagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ScorePagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ScorePagesTable> {
+  $$ScorePagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ScorePagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ScorePagesTable> {
+  $$ScorePagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get folderId =>
+      $composableBuilder(column: $table.folderId, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get imagePath =>
+      $composableBuilder(column: $table.imagePath, builder: (column) => column);
+}
+
+class $$ScorePagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ScorePagesTable,
+          ScorePage,
+          $$ScorePagesTableFilterComposer,
+          $$ScorePagesTableOrderingComposer,
+          $$ScorePagesTableAnnotationComposer,
+          $$ScorePagesTableCreateCompanionBuilder,
+          $$ScorePagesTableUpdateCompanionBuilder,
+          (
+            ScorePage,
+            BaseReferences<_$AppDatabase, $ScorePagesTable, ScorePage>,
+          ),
+          ScorePage,
+          PrefetchHooks Function()
+        > {
+  $$ScorePagesTableTableManager(_$AppDatabase db, $ScorePagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ScorePagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ScorePagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ScorePagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> folderId = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> imagePath = const Value.absent(),
+              }) => ScorePagesCompanion(
+                id: id,
+                folderId: folderId,
+                sortOrder: sortOrder,
+                name: name,
+                imagePath: imagePath,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int folderId,
+                required int sortOrder,
+                required String name,
+                required String imagePath,
+              }) => ScorePagesCompanion.insert(
+                id: id,
+                folderId: folderId,
+                sortOrder: sortOrder,
+                name: name,
+                imagePath: imagePath,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ScorePagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ScorePagesTable,
+      ScorePage,
+      $$ScorePagesTableFilterComposer,
+      $$ScorePagesTableOrderingComposer,
+      $$ScorePagesTableAnnotationComposer,
+      $$ScorePagesTableCreateCompanionBuilder,
+      $$ScorePagesTableUpdateCompanionBuilder,
+      (ScorePage, BaseReferences<_$AppDatabase, $ScorePagesTable, ScorePage>),
+      ScorePage,
+      PrefetchHooks Function()
+    >;
+typedef $$ScorePageTurnsTableCreateCompanionBuilder =
+    ScorePageTurnsCompanion Function({
+      Value<int> id,
+      required int folderId,
+      required int measure,
+      required int pageIndex,
+    });
+typedef $$ScorePageTurnsTableUpdateCompanionBuilder =
+    ScorePageTurnsCompanion Function({
+      Value<int> id,
+      Value<int> folderId,
+      Value<int> measure,
+      Value<int> pageIndex,
+    });
+
+class $$ScorePageTurnsTableFilterComposer
+    extends Composer<_$AppDatabase, $ScorePageTurnsTable> {
+  $$ScorePageTurnsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get measure => $composableBuilder(
+    column: $table.measure,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pageIndex => $composableBuilder(
+    column: $table.pageIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ScorePageTurnsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ScorePageTurnsTable> {
+  $$ScorePageTurnsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get measure => $composableBuilder(
+    column: $table.measure,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pageIndex => $composableBuilder(
+    column: $table.pageIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ScorePageTurnsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ScorePageTurnsTable> {
+  $$ScorePageTurnsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get folderId =>
+      $composableBuilder(column: $table.folderId, builder: (column) => column);
+
+  GeneratedColumn<int> get measure =>
+      $composableBuilder(column: $table.measure, builder: (column) => column);
+
+  GeneratedColumn<int> get pageIndex =>
+      $composableBuilder(column: $table.pageIndex, builder: (column) => column);
+}
+
+class $$ScorePageTurnsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ScorePageTurnsTable,
+          ScorePageTurn,
+          $$ScorePageTurnsTableFilterComposer,
+          $$ScorePageTurnsTableOrderingComposer,
+          $$ScorePageTurnsTableAnnotationComposer,
+          $$ScorePageTurnsTableCreateCompanionBuilder,
+          $$ScorePageTurnsTableUpdateCompanionBuilder,
+          (
+            ScorePageTurn,
+            BaseReferences<_$AppDatabase, $ScorePageTurnsTable, ScorePageTurn>,
+          ),
+          ScorePageTurn,
+          PrefetchHooks Function()
+        > {
+  $$ScorePageTurnsTableTableManager(
+    _$AppDatabase db,
+    $ScorePageTurnsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ScorePageTurnsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ScorePageTurnsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ScorePageTurnsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> folderId = const Value.absent(),
+                Value<int> measure = const Value.absent(),
+                Value<int> pageIndex = const Value.absent(),
+              }) => ScorePageTurnsCompanion(
+                id: id,
+                folderId: folderId,
+                measure: measure,
+                pageIndex: pageIndex,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int folderId,
+                required int measure,
+                required int pageIndex,
+              }) => ScorePageTurnsCompanion.insert(
+                id: id,
+                folderId: folderId,
+                measure: measure,
+                pageIndex: pageIndex,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ScorePageTurnsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ScorePageTurnsTable,
+      ScorePageTurn,
+      $$ScorePageTurnsTableFilterComposer,
+      $$ScorePageTurnsTableOrderingComposer,
+      $$ScorePageTurnsTableAnnotationComposer,
+      $$ScorePageTurnsTableCreateCompanionBuilder,
+      $$ScorePageTurnsTableUpdateCompanionBuilder,
+      (
+        ScorePageTurn,
+        BaseReferences<_$AppDatabase, $ScorePageTurnsTable, ScorePageTurn>,
+      ),
+      ScorePageTurn,
+      PrefetchHooks Function()
+    >;
+typedef $$ScoreAnnotationsTableCreateCompanionBuilder =
+    ScoreAnnotationsCompanion Function({
+      Value<int> id,
+      required int pageId,
+      required String strokesJson,
+    });
+typedef $$ScoreAnnotationsTableUpdateCompanionBuilder =
+    ScoreAnnotationsCompanion Function({
+      Value<int> id,
+      Value<int> pageId,
+      Value<String> strokesJson,
+    });
+
+class $$ScoreAnnotationsTableFilterComposer
+    extends Composer<_$AppDatabase, $ScoreAnnotationsTable> {
+  $$ScoreAnnotationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pageId => $composableBuilder(
+    column: $table.pageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get strokesJson => $composableBuilder(
+    column: $table.strokesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ScoreAnnotationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ScoreAnnotationsTable> {
+  $$ScoreAnnotationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pageId => $composableBuilder(
+    column: $table.pageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get strokesJson => $composableBuilder(
+    column: $table.strokesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ScoreAnnotationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ScoreAnnotationsTable> {
+  $$ScoreAnnotationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get pageId =>
+      $composableBuilder(column: $table.pageId, builder: (column) => column);
+
+  GeneratedColumn<String> get strokesJson => $composableBuilder(
+    column: $table.strokesJson,
+    builder: (column) => column,
+  );
+}
+
+class $$ScoreAnnotationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ScoreAnnotationsTable,
+          ScoreAnnotation,
+          $$ScoreAnnotationsTableFilterComposer,
+          $$ScoreAnnotationsTableOrderingComposer,
+          $$ScoreAnnotationsTableAnnotationComposer,
+          $$ScoreAnnotationsTableCreateCompanionBuilder,
+          $$ScoreAnnotationsTableUpdateCompanionBuilder,
+          (
+            ScoreAnnotation,
+            BaseReferences<
+              _$AppDatabase,
+              $ScoreAnnotationsTable,
+              ScoreAnnotation
+            >,
+          ),
+          ScoreAnnotation,
+          PrefetchHooks Function()
+        > {
+  $$ScoreAnnotationsTableTableManager(
+    _$AppDatabase db,
+    $ScoreAnnotationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ScoreAnnotationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ScoreAnnotationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ScoreAnnotationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> pageId = const Value.absent(),
+                Value<String> strokesJson = const Value.absent(),
+              }) => ScoreAnnotationsCompanion(
+                id: id,
+                pageId: pageId,
+                strokesJson: strokesJson,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int pageId,
+                required String strokesJson,
+              }) => ScoreAnnotationsCompanion.insert(
+                id: id,
+                pageId: pageId,
+                strokesJson: strokesJson,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ScoreAnnotationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ScoreAnnotationsTable,
+      ScoreAnnotation,
+      $$ScoreAnnotationsTableFilterComposer,
+      $$ScoreAnnotationsTableOrderingComposer,
+      $$ScoreAnnotationsTableAnnotationComposer,
+      $$ScoreAnnotationsTableCreateCompanionBuilder,
+      $$ScoreAnnotationsTableUpdateCompanionBuilder,
+      (
+        ScoreAnnotation,
+        BaseReferences<_$AppDatabase, $ScoreAnnotationsTable, ScoreAnnotation>,
+      ),
+      ScoreAnnotation,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7843,4 +9774,12 @@ class $AppDatabaseManager {
       $$PieceSectionsTableTableManager(_db, _db.pieceSections);
   $$AuditSessionsTableTableManager get auditSessions =>
       $$AuditSessionsTableTableManager(_db, _db.auditSessions);
+  $$ScoreFoldersTableTableManager get scoreFolders =>
+      $$ScoreFoldersTableTableManager(_db, _db.scoreFolders);
+  $$ScorePagesTableTableManager get scorePages =>
+      $$ScorePagesTableTableManager(_db, _db.scorePages);
+  $$ScorePageTurnsTableTableManager get scorePageTurns =>
+      $$ScorePageTurnsTableTableManager(_db, _db.scorePageTurns);
+  $$ScoreAnnotationsTableTableManager get scoreAnnotations =>
+      $$ScoreAnnotationsTableTableManager(_db, _db.scoreAnnotations);
 }
