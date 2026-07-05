@@ -112,6 +112,30 @@ class PieceSections extends Table {
       boolean().withDefault(const Constant(true))();
 }
 
+// ─── Practice Audit Log (tamper-evident) ─────────────────────────────────────
+//
+// Auto-recorded metronome sessions forming a SHA-256 hash chain: each row's
+// entryHash covers its own canonical payload PLUS the previous row's hash.
+// Editing or deleting any historical row breaks every hash after it, which
+// the in-app verifier reports. This makes falsification EVIDENT, not
+// impossible — an honest-by-design practice ledger a director can trust.
+
+class AuditSessions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get startedAt => dateTime()();
+  DateTimeColumn get endedAt => dateTime()();
+  IntColumn get seconds => integer()();
+  IntColumn get bpmLow => integer()();
+  IntColumn get bpmHigh => integer()();
+  IntColumn get bpmLast => integer()();
+  TextColumn get timeSignature => text()(); // MetronomeTimeSignature.name
+  TextColumn get subdivision => text()(); // MetronomeSubdivision.name
+  // standard | piece | cognitive | randomizer
+  TextColumn get mode => text()();
+  TextColumn get prevHash => text()();
+  TextColumn get entryHash => text()();
+}
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 @DriftDatabase(tables: [
@@ -126,12 +150,13 @@ class PieceSections extends Table {
   EventReminders,
   MetronomePieces,
   PieceSections,
+  AuditSessions,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -150,6 +175,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(categoryNotes);
+          }
+          if (from < 6) {
+            await m.createTable(auditSessions);
           }
         },
       );

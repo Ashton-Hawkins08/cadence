@@ -55,6 +55,7 @@ class RandomizerController extends StateNotifier<RandomizerState> {
   void enable() {
     final base = _engine.bpm;
     state = RandomizerState(enabled: true, baseBpm: base, revealed: false);
+    _ref.read(auditRecorderProvider).randomizerActive = true;
     _roll(base);
   }
 
@@ -63,6 +64,7 @@ class RandomizerController extends StateNotifier<RandomizerState> {
   void disable() {
     if (!state.enabled) return;
     _engine.setBpm(state.baseBpm);
+    _ref.read(auditRecorderProvider).randomizerActive = false;
     state = state.copyWith(enabled: false, revealed: false);
   }
 

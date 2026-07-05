@@ -633,6 +633,7 @@ class MetronomeEngine {
   bool get isPlaying => _isPlaying;
   bool get isPaused => _isPaused;
   int get currentSectionIndex => _sectionIndex;
+  bool get isPieceMode => _sections != null;
 
   // ── Internal tick loop ─────────────────────────────────────────────────────
 

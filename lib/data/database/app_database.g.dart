@@ -4376,6 +4376,706 @@ class PieceSectionsCompanion extends UpdateCompanion<PieceSection> {
   }
 }
 
+class $AuditSessionsTable extends AuditSessions
+    with TableInfo<$AuditSessionsTable, AuditSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuditSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endedAtMeta = const VerificationMeta(
+    'endedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endedAt = GeneratedColumn<DateTime>(
+    'ended_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondsMeta = const VerificationMeta(
+    'seconds',
+  );
+  @override
+  late final GeneratedColumn<int> seconds = GeneratedColumn<int>(
+    'seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bpmLowMeta = const VerificationMeta('bpmLow');
+  @override
+  late final GeneratedColumn<int> bpmLow = GeneratedColumn<int>(
+    'bpm_low',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bpmHighMeta = const VerificationMeta(
+    'bpmHigh',
+  );
+  @override
+  late final GeneratedColumn<int> bpmHigh = GeneratedColumn<int>(
+    'bpm_high',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bpmLastMeta = const VerificationMeta(
+    'bpmLast',
+  );
+  @override
+  late final GeneratedColumn<int> bpmLast = GeneratedColumn<int>(
+    'bpm_last',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeSignatureMeta = const VerificationMeta(
+    'timeSignature',
+  );
+  @override
+  late final GeneratedColumn<String> timeSignature = GeneratedColumn<String>(
+    'time_signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subdivisionMeta = const VerificationMeta(
+    'subdivision',
+  );
+  @override
+  late final GeneratedColumn<String> subdivision = GeneratedColumn<String>(
+    'subdivision',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
+  @override
+  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
+    'mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _prevHashMeta = const VerificationMeta(
+    'prevHash',
+  );
+  @override
+  late final GeneratedColumn<String> prevHash = GeneratedColumn<String>(
+    'prev_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entryHashMeta = const VerificationMeta(
+    'entryHash',
+  );
+  @override
+  late final GeneratedColumn<String> entryHash = GeneratedColumn<String>(
+    'entry_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    startedAt,
+    endedAt,
+    seconds,
+    bpmLow,
+    bpmHigh,
+    bpmLast,
+    timeSignature,
+    subdivision,
+    mode,
+    prevHash,
+    entryHash,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'audit_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuditSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('ended_at')) {
+      context.handle(
+        _endedAtMeta,
+        endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endedAtMeta);
+    }
+    if (data.containsKey('seconds')) {
+      context.handle(
+        _secondsMeta,
+        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_secondsMeta);
+    }
+    if (data.containsKey('bpm_low')) {
+      context.handle(
+        _bpmLowMeta,
+        bpmLow.isAcceptableOrUnknown(data['bpm_low']!, _bpmLowMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bpmLowMeta);
+    }
+    if (data.containsKey('bpm_high')) {
+      context.handle(
+        _bpmHighMeta,
+        bpmHigh.isAcceptableOrUnknown(data['bpm_high']!, _bpmHighMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bpmHighMeta);
+    }
+    if (data.containsKey('bpm_last')) {
+      context.handle(
+        _bpmLastMeta,
+        bpmLast.isAcceptableOrUnknown(data['bpm_last']!, _bpmLastMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bpmLastMeta);
+    }
+    if (data.containsKey('time_signature')) {
+      context.handle(
+        _timeSignatureMeta,
+        timeSignature.isAcceptableOrUnknown(
+          data['time_signature']!,
+          _timeSignatureMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_timeSignatureMeta);
+    }
+    if (data.containsKey('subdivision')) {
+      context.handle(
+        _subdivisionMeta,
+        subdivision.isAcceptableOrUnknown(
+          data['subdivision']!,
+          _subdivisionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subdivisionMeta);
+    }
+    if (data.containsKey('mode')) {
+      context.handle(
+        _modeMeta,
+        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modeMeta);
+    }
+    if (data.containsKey('prev_hash')) {
+      context.handle(
+        _prevHashMeta,
+        prevHash.isAcceptableOrUnknown(data['prev_hash']!, _prevHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_prevHashMeta);
+    }
+    if (data.containsKey('entry_hash')) {
+      context.handle(
+        _entryHashMeta,
+        entryHash.isAcceptableOrUnknown(data['entry_hash']!, _entryHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entryHashMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuditSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuditSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      endedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ended_at'],
+      )!,
+      seconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seconds'],
+      )!,
+      bpmLow: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bpm_low'],
+      )!,
+      bpmHigh: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bpm_high'],
+      )!,
+      bpmLast: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bpm_last'],
+      )!,
+      timeSignature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_signature'],
+      )!,
+      subdivision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subdivision'],
+      )!,
+      mode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mode'],
+      )!,
+      prevHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}prev_hash'],
+      )!,
+      entryHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entry_hash'],
+      )!,
+    );
+  }
+
+  @override
+  $AuditSessionsTable createAlias(String alias) {
+    return $AuditSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class AuditSession extends DataClass implements Insertable<AuditSession> {
+  final int id;
+  final DateTime startedAt;
+  final DateTime endedAt;
+  final int seconds;
+  final int bpmLow;
+  final int bpmHigh;
+  final int bpmLast;
+  final String timeSignature;
+  final String subdivision;
+  final String mode;
+  final String prevHash;
+  final String entryHash;
+  const AuditSession({
+    required this.id,
+    required this.startedAt,
+    required this.endedAt,
+    required this.seconds,
+    required this.bpmLow,
+    required this.bpmHigh,
+    required this.bpmLast,
+    required this.timeSignature,
+    required this.subdivision,
+    required this.mode,
+    required this.prevHash,
+    required this.entryHash,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['ended_at'] = Variable<DateTime>(endedAt);
+    map['seconds'] = Variable<int>(seconds);
+    map['bpm_low'] = Variable<int>(bpmLow);
+    map['bpm_high'] = Variable<int>(bpmHigh);
+    map['bpm_last'] = Variable<int>(bpmLast);
+    map['time_signature'] = Variable<String>(timeSignature);
+    map['subdivision'] = Variable<String>(subdivision);
+    map['mode'] = Variable<String>(mode);
+    map['prev_hash'] = Variable<String>(prevHash);
+    map['entry_hash'] = Variable<String>(entryHash);
+    return map;
+  }
+
+  AuditSessionsCompanion toCompanion(bool nullToAbsent) {
+    return AuditSessionsCompanion(
+      id: Value(id),
+      startedAt: Value(startedAt),
+      endedAt: Value(endedAt),
+      seconds: Value(seconds),
+      bpmLow: Value(bpmLow),
+      bpmHigh: Value(bpmHigh),
+      bpmLast: Value(bpmLast),
+      timeSignature: Value(timeSignature),
+      subdivision: Value(subdivision),
+      mode: Value(mode),
+      prevHash: Value(prevHash),
+      entryHash: Value(entryHash),
+    );
+  }
+
+  factory AuditSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuditSession(
+      id: serializer.fromJson<int>(json['id']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      endedAt: serializer.fromJson<DateTime>(json['endedAt']),
+      seconds: serializer.fromJson<int>(json['seconds']),
+      bpmLow: serializer.fromJson<int>(json['bpmLow']),
+      bpmHigh: serializer.fromJson<int>(json['bpmHigh']),
+      bpmLast: serializer.fromJson<int>(json['bpmLast']),
+      timeSignature: serializer.fromJson<String>(json['timeSignature']),
+      subdivision: serializer.fromJson<String>(json['subdivision']),
+      mode: serializer.fromJson<String>(json['mode']),
+      prevHash: serializer.fromJson<String>(json['prevHash']),
+      entryHash: serializer.fromJson<String>(json['entryHash']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'endedAt': serializer.toJson<DateTime>(endedAt),
+      'seconds': serializer.toJson<int>(seconds),
+      'bpmLow': serializer.toJson<int>(bpmLow),
+      'bpmHigh': serializer.toJson<int>(bpmHigh),
+      'bpmLast': serializer.toJson<int>(bpmLast),
+      'timeSignature': serializer.toJson<String>(timeSignature),
+      'subdivision': serializer.toJson<String>(subdivision),
+      'mode': serializer.toJson<String>(mode),
+      'prevHash': serializer.toJson<String>(prevHash),
+      'entryHash': serializer.toJson<String>(entryHash),
+    };
+  }
+
+  AuditSession copyWith({
+    int? id,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    int? seconds,
+    int? bpmLow,
+    int? bpmHigh,
+    int? bpmLast,
+    String? timeSignature,
+    String? subdivision,
+    String? mode,
+    String? prevHash,
+    String? entryHash,
+  }) => AuditSession(
+    id: id ?? this.id,
+    startedAt: startedAt ?? this.startedAt,
+    endedAt: endedAt ?? this.endedAt,
+    seconds: seconds ?? this.seconds,
+    bpmLow: bpmLow ?? this.bpmLow,
+    bpmHigh: bpmHigh ?? this.bpmHigh,
+    bpmLast: bpmLast ?? this.bpmLast,
+    timeSignature: timeSignature ?? this.timeSignature,
+    subdivision: subdivision ?? this.subdivision,
+    mode: mode ?? this.mode,
+    prevHash: prevHash ?? this.prevHash,
+    entryHash: entryHash ?? this.entryHash,
+  );
+  AuditSession copyWithCompanion(AuditSessionsCompanion data) {
+    return AuditSession(
+      id: data.id.present ? data.id.value : this.id,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
+      seconds: data.seconds.present ? data.seconds.value : this.seconds,
+      bpmLow: data.bpmLow.present ? data.bpmLow.value : this.bpmLow,
+      bpmHigh: data.bpmHigh.present ? data.bpmHigh.value : this.bpmHigh,
+      bpmLast: data.bpmLast.present ? data.bpmLast.value : this.bpmLast,
+      timeSignature: data.timeSignature.present
+          ? data.timeSignature.value
+          : this.timeSignature,
+      subdivision: data.subdivision.present
+          ? data.subdivision.value
+          : this.subdivision,
+      mode: data.mode.present ? data.mode.value : this.mode,
+      prevHash: data.prevHash.present ? data.prevHash.value : this.prevHash,
+      entryHash: data.entryHash.present ? data.entryHash.value : this.entryHash,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditSession(')
+          ..write('id: $id, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('seconds: $seconds, ')
+          ..write('bpmLow: $bpmLow, ')
+          ..write('bpmHigh: $bpmHigh, ')
+          ..write('bpmLast: $bpmLast, ')
+          ..write('timeSignature: $timeSignature, ')
+          ..write('subdivision: $subdivision, ')
+          ..write('mode: $mode, ')
+          ..write('prevHash: $prevHash, ')
+          ..write('entryHash: $entryHash')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    startedAt,
+    endedAt,
+    seconds,
+    bpmLow,
+    bpmHigh,
+    bpmLast,
+    timeSignature,
+    subdivision,
+    mode,
+    prevHash,
+    entryHash,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuditSession &&
+          other.id == this.id &&
+          other.startedAt == this.startedAt &&
+          other.endedAt == this.endedAt &&
+          other.seconds == this.seconds &&
+          other.bpmLow == this.bpmLow &&
+          other.bpmHigh == this.bpmHigh &&
+          other.bpmLast == this.bpmLast &&
+          other.timeSignature == this.timeSignature &&
+          other.subdivision == this.subdivision &&
+          other.mode == this.mode &&
+          other.prevHash == this.prevHash &&
+          other.entryHash == this.entryHash);
+}
+
+class AuditSessionsCompanion extends UpdateCompanion<AuditSession> {
+  final Value<int> id;
+  final Value<DateTime> startedAt;
+  final Value<DateTime> endedAt;
+  final Value<int> seconds;
+  final Value<int> bpmLow;
+  final Value<int> bpmHigh;
+  final Value<int> bpmLast;
+  final Value<String> timeSignature;
+  final Value<String> subdivision;
+  final Value<String> mode;
+  final Value<String> prevHash;
+  final Value<String> entryHash;
+  const AuditSessionsCompanion({
+    this.id = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.bpmLow = const Value.absent(),
+    this.bpmHigh = const Value.absent(),
+    this.bpmLast = const Value.absent(),
+    this.timeSignature = const Value.absent(),
+    this.subdivision = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.prevHash = const Value.absent(),
+    this.entryHash = const Value.absent(),
+  });
+  AuditSessionsCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime startedAt,
+    required DateTime endedAt,
+    required int seconds,
+    required int bpmLow,
+    required int bpmHigh,
+    required int bpmLast,
+    required String timeSignature,
+    required String subdivision,
+    required String mode,
+    required String prevHash,
+    required String entryHash,
+  }) : startedAt = Value(startedAt),
+       endedAt = Value(endedAt),
+       seconds = Value(seconds),
+       bpmLow = Value(bpmLow),
+       bpmHigh = Value(bpmHigh),
+       bpmLast = Value(bpmLast),
+       timeSignature = Value(timeSignature),
+       subdivision = Value(subdivision),
+       mode = Value(mode),
+       prevHash = Value(prevHash),
+       entryHash = Value(entryHash);
+  static Insertable<AuditSession> custom({
+    Expression<int>? id,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? endedAt,
+    Expression<int>? seconds,
+    Expression<int>? bpmLow,
+    Expression<int>? bpmHigh,
+    Expression<int>? bpmLast,
+    Expression<String>? timeSignature,
+    Expression<String>? subdivision,
+    Expression<String>? mode,
+    Expression<String>? prevHash,
+    Expression<String>? entryHash,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (startedAt != null) 'started_at': startedAt,
+      if (endedAt != null) 'ended_at': endedAt,
+      if (seconds != null) 'seconds': seconds,
+      if (bpmLow != null) 'bpm_low': bpmLow,
+      if (bpmHigh != null) 'bpm_high': bpmHigh,
+      if (bpmLast != null) 'bpm_last': bpmLast,
+      if (timeSignature != null) 'time_signature': timeSignature,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (mode != null) 'mode': mode,
+      if (prevHash != null) 'prev_hash': prevHash,
+      if (entryHash != null) 'entry_hash': entryHash,
+    });
+  }
+
+  AuditSessionsCompanion copyWith({
+    Value<int>? id,
+    Value<DateTime>? startedAt,
+    Value<DateTime>? endedAt,
+    Value<int>? seconds,
+    Value<int>? bpmLow,
+    Value<int>? bpmHigh,
+    Value<int>? bpmLast,
+    Value<String>? timeSignature,
+    Value<String>? subdivision,
+    Value<String>? mode,
+    Value<String>? prevHash,
+    Value<String>? entryHash,
+  }) {
+    return AuditSessionsCompanion(
+      id: id ?? this.id,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      seconds: seconds ?? this.seconds,
+      bpmLow: bpmLow ?? this.bpmLow,
+      bpmHigh: bpmHigh ?? this.bpmHigh,
+      bpmLast: bpmLast ?? this.bpmLast,
+      timeSignature: timeSignature ?? this.timeSignature,
+      subdivision: subdivision ?? this.subdivision,
+      mode: mode ?? this.mode,
+      prevHash: prevHash ?? this.prevHash,
+      entryHash: entryHash ?? this.entryHash,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (endedAt.present) {
+      map['ended_at'] = Variable<DateTime>(endedAt.value);
+    }
+    if (seconds.present) {
+      map['seconds'] = Variable<int>(seconds.value);
+    }
+    if (bpmLow.present) {
+      map['bpm_low'] = Variable<int>(bpmLow.value);
+    }
+    if (bpmHigh.present) {
+      map['bpm_high'] = Variable<int>(bpmHigh.value);
+    }
+    if (bpmLast.present) {
+      map['bpm_last'] = Variable<int>(bpmLast.value);
+    }
+    if (timeSignature.present) {
+      map['time_signature'] = Variable<String>(timeSignature.value);
+    }
+    if (subdivision.present) {
+      map['subdivision'] = Variable<String>(subdivision.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(mode.value);
+    }
+    if (prevHash.present) {
+      map['prev_hash'] = Variable<String>(prevHash.value);
+    }
+    if (entryHash.present) {
+      map['entry_hash'] = Variable<String>(entryHash.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('seconds: $seconds, ')
+          ..write('bpmLow: $bpmLow, ')
+          ..write('bpmHigh: $bpmHigh, ')
+          ..write('bpmLast: $bpmLast, ')
+          ..write('timeSignature: $timeSignature, ')
+          ..write('subdivision: $subdivision, ')
+          ..write('mode: $mode, ')
+          ..write('prevHash: $prevHash, ')
+          ..write('entryHash: $entryHash')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4393,6 +5093,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PieceSectionsTable pieceSections = $PieceSectionsTable(this);
+  late final $AuditSessionsTable auditSessions = $AuditSessionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4409,6 +5110,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     eventReminders,
     metronomePieces,
     pieceSections,
+    auditSessions,
   ];
 }
 
@@ -6779,6 +7481,337 @@ typedef $$PieceSectionsTableProcessedTableManager =
       PieceSection,
       PrefetchHooks Function()
     >;
+typedef $$AuditSessionsTableCreateCompanionBuilder =
+    AuditSessionsCompanion Function({
+      Value<int> id,
+      required DateTime startedAt,
+      required DateTime endedAt,
+      required int seconds,
+      required int bpmLow,
+      required int bpmHigh,
+      required int bpmLast,
+      required String timeSignature,
+      required String subdivision,
+      required String mode,
+      required String prevHash,
+      required String entryHash,
+    });
+typedef $$AuditSessionsTableUpdateCompanionBuilder =
+    AuditSessionsCompanion Function({
+      Value<int> id,
+      Value<DateTime> startedAt,
+      Value<DateTime> endedAt,
+      Value<int> seconds,
+      Value<int> bpmLow,
+      Value<int> bpmHigh,
+      Value<int> bpmLast,
+      Value<String> timeSignature,
+      Value<String> subdivision,
+      Value<String> mode,
+      Value<String> prevHash,
+      Value<String> entryHash,
+    });
+
+class $$AuditSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $AuditSessionsTable> {
+  $$AuditSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bpmLow => $composableBuilder(
+    column: $table.bpmLow,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bpmHigh => $composableBuilder(
+    column: $table.bpmHigh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bpmLast => $composableBuilder(
+    column: $table.bpmLast,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeSignature => $composableBuilder(
+    column: $table.timeSignature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subdivision => $composableBuilder(
+    column: $table.subdivision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get prevHash => $composableBuilder(
+    column: $table.prevHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entryHash => $composableBuilder(
+    column: $table.entryHash,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AuditSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AuditSessionsTable> {
+  $$AuditSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bpmLow => $composableBuilder(
+    column: $table.bpmLow,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bpmHigh => $composableBuilder(
+    column: $table.bpmHigh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bpmLast => $composableBuilder(
+    column: $table.bpmLast,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeSignature => $composableBuilder(
+    column: $table.timeSignature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subdivision => $composableBuilder(
+    column: $table.subdivision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get prevHash => $composableBuilder(
+    column: $table.prevHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entryHash => $composableBuilder(
+    column: $table.entryHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AuditSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AuditSessionsTable> {
+  $$AuditSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endedAt =>
+      $composableBuilder(column: $table.endedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get seconds =>
+      $composableBuilder(column: $table.seconds, builder: (column) => column);
+
+  GeneratedColumn<int> get bpmLow =>
+      $composableBuilder(column: $table.bpmLow, builder: (column) => column);
+
+  GeneratedColumn<int> get bpmHigh =>
+      $composableBuilder(column: $table.bpmHigh, builder: (column) => column);
+
+  GeneratedColumn<int> get bpmLast =>
+      $composableBuilder(column: $table.bpmLast, builder: (column) => column);
+
+  GeneratedColumn<String> get timeSignature => $composableBuilder(
+    column: $table.timeSignature,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subdivision => $composableBuilder(
+    column: $table.subdivision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  GeneratedColumn<String> get prevHash =>
+      $composableBuilder(column: $table.prevHash, builder: (column) => column);
+
+  GeneratedColumn<String> get entryHash =>
+      $composableBuilder(column: $table.entryHash, builder: (column) => column);
+}
+
+class $$AuditSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AuditSessionsTable,
+          AuditSession,
+          $$AuditSessionsTableFilterComposer,
+          $$AuditSessionsTableOrderingComposer,
+          $$AuditSessionsTableAnnotationComposer,
+          $$AuditSessionsTableCreateCompanionBuilder,
+          $$AuditSessionsTableUpdateCompanionBuilder,
+          (
+            AuditSession,
+            BaseReferences<_$AppDatabase, $AuditSessionsTable, AuditSession>,
+          ),
+          AuditSession,
+          PrefetchHooks Function()
+        > {
+  $$AuditSessionsTableTableManager(_$AppDatabase db, $AuditSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuditSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuditSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AuditSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime> endedAt = const Value.absent(),
+                Value<int> seconds = const Value.absent(),
+                Value<int> bpmLow = const Value.absent(),
+                Value<int> bpmHigh = const Value.absent(),
+                Value<int> bpmLast = const Value.absent(),
+                Value<String> timeSignature = const Value.absent(),
+                Value<String> subdivision = const Value.absent(),
+                Value<String> mode = const Value.absent(),
+                Value<String> prevHash = const Value.absent(),
+                Value<String> entryHash = const Value.absent(),
+              }) => AuditSessionsCompanion(
+                id: id,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                seconds: seconds,
+                bpmLow: bpmLow,
+                bpmHigh: bpmHigh,
+                bpmLast: bpmLast,
+                timeSignature: timeSignature,
+                subdivision: subdivision,
+                mode: mode,
+                prevHash: prevHash,
+                entryHash: entryHash,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required DateTime startedAt,
+                required DateTime endedAt,
+                required int seconds,
+                required int bpmLow,
+                required int bpmHigh,
+                required int bpmLast,
+                required String timeSignature,
+                required String subdivision,
+                required String mode,
+                required String prevHash,
+                required String entryHash,
+              }) => AuditSessionsCompanion.insert(
+                id: id,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                seconds: seconds,
+                bpmLow: bpmLow,
+                bpmHigh: bpmHigh,
+                bpmLast: bpmLast,
+                timeSignature: timeSignature,
+                subdivision: subdivision,
+                mode: mode,
+                prevHash: prevHash,
+                entryHash: entryHash,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AuditSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AuditSessionsTable,
+      AuditSession,
+      $$AuditSessionsTableFilterComposer,
+      $$AuditSessionsTableOrderingComposer,
+      $$AuditSessionsTableAnnotationComposer,
+      $$AuditSessionsTableCreateCompanionBuilder,
+      $$AuditSessionsTableUpdateCompanionBuilder,
+      (
+        AuditSession,
+        BaseReferences<_$AppDatabase, $AuditSessionsTable, AuditSession>,
+      ),
+      AuditSession,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6808,4 +7841,6 @@ class $AppDatabaseManager {
       $$MetronomePiecesTableTableManager(_db, _db.metronomePieces);
   $$PieceSectionsTableTableManager get pieceSections =>
       $$PieceSectionsTableTableManager(_db, _db.pieceSections);
+  $$AuditSessionsTableTableManager get auditSessions =>
+      $$AuditSessionsTableTableManager(_db, _db.auditSessions);
 }
