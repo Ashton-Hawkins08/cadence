@@ -276,6 +276,30 @@ class _TempoReadout extends StatelessWidget {
                   width: 220,
                   child: Column(
                     children: [
+                      // Live input level — proof the mic hears something,
+                      // updated a few times a second even between beats.
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (r.level * 2.5).clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: isDark
+                              ? AppColors.darkDivider
+                              : AppColors.lightDivider,
+                          valueColor: const AlwaysStoppedAnimation(
+                              AppColors.indigoNavySoft),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Mic level',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(

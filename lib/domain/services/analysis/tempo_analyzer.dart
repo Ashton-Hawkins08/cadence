@@ -39,7 +39,12 @@ class TempoReading {
   /// 0–1; how tightly recent intervals agree (1 = rock solid).
   final double stability;
 
-  const TempoReading(this.bpm, this.beatCount, this.stability);
+  /// 0–1 live input level (post-normalization RMS) — drives the mic meter
+  /// so users can SEE whether the device hears them at all.
+  final double level;
+
+  const TempoReading(this.bpm, this.beatCount, this.stability,
+      [this.level = 0]);
 
   static const none = TempoReading(0, 0, 0);
 }
@@ -67,6 +72,12 @@ class TempoAnalyzer {
   double _clockMs = 0;
   final _intervals = <double>[];
   int _beatCount = 0;
+
+  /// Latest state for periodic status pushes (level meter, live beat count)
+  /// even between onsets.
+  TempoReading lastReading = TempoReading.none;
+  double get currentLevel => _prevRms.clamp(0.0, 1.0);
+  int get beatCount => _beatCount;
 
   TempoAnalyzer({this.sampleRate = 22050, this.beatUnits = const []});
 
@@ -104,9 +115,14 @@ class TempoAnalyzer {
       final sorted = [..._envelope]..sort();
       final median = sorted[sorted.length ~/ 2];
       final mad = _mad(sorted, median);
-      // Robust threshold: quiet rooms get sensitive, loud rooms don't
-      // false-trigger on breath noise.
-      final threshold = median + max(4 * mad, 0.008);
+      // RELATIVE threshold: a transient must stand well above the recent
+      // envelope (2.2× its median, or 3 MADs). The original version used an
+      // absolute floor of 0.008 (−42 dBFS) which sits ABOVE what a raw,
+      // un-gained laptop mic delivers for a clap — so no onset ever fired.
+      // The 0.002 floor only suppresses near-digital silence; real gating
+      // comes from the relative terms (input arrives pre-normalized — see
+      // SignalNormalizer).
+      final threshold = max(median * 2.2, max(median + 3 * mad, 0.002));
 
       final rising = rms > threshold && _prevRms <= threshold;
       if (rising && _clockMs - _lastOnsetMs > _refractoryMs) {
@@ -115,6 +131,7 @@ class TempoAnalyzer {
       }
     }
     _prevRms = rms;
+    if (out != null) lastReading = out;
     return out;
   }
 
@@ -139,7 +156,7 @@ class TempoAnalyzer {
     }
 
     if (_intervals.length < 3) {
-      return TempoReading(0, _beatCount, 0);
+      return TempoReading(0, _beatCount, 0, currentLevel);
     }
     return beatUnits.isEmpty ? _genericReading() : _mixedMeterReading();
   }
@@ -170,7 +187,7 @@ class TempoAnalyzer {
     // Stability: 1 − normalized spread of recent intervals.
     final spread = _mad([..._intervals]..sort(), med) / med;
     final stability = (1 - spread * 4).clamp(0.0, 1.0);
-    return TempoReading(bpm, _beatCount, stability);
+    return TempoReading(bpm, _beatCount, stability, currentLevel);
   }
 
   // ── Mixed-meter unit solver ─────────────────────────────────────────────────
@@ -223,7 +240,7 @@ class TempoAnalyzer {
     // Report the QUARTER-note rate (eighth × 2) — the number the user dials
     // into the metronome for this signature.
     final bpm = 60000.0 / (2 * e);
-    return TempoReading(bpm, _beatCount, stability);
+    return TempoReading(bpm, _beatCount, stability, currentLevel);
   }
 
   int _bestK(double interval, double e) {
@@ -252,5 +269,6 @@ class TempoAnalyzer {
     _prevRms = 0;
     _lastOnsetMs = -1e9;
     _clockMs = 0;
+    lastReading = TempoReading.none;
   }
 }

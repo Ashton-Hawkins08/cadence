@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:record/record.dart';
 import 'pitch_analyzer.dart';
+import 'signal_normalizer.dart';
 import 'tempo_analyzer.dart';
 
 // ── Microphone analysis service ───────────────────────────────────────────────
@@ -88,17 +89,20 @@ class MicAnalysisService {
           case 'pitch':
             final freq = msg[1] as double;
             final clarity = msg[2] as double;
-            // Below ~0.6 clarity YIN is reading room noise — show "no pitch"
+            // Below ~0.5 clarity YIN is reading room noise — show "no pitch"
             // rather than a jittering wrong note.
             if (!_noteCtrl.isClosed) {
-              _noteCtrl.add(clarity >= 0.6
+              _noteCtrl.add(clarity >= 0.5
                   ? NoteReading.fromFrequency(freq, clarity)
                   : null);
             }
           case 'tempo':
             if (!_tempoCtrl.isClosed) {
               _tempoCtrl.add(TempoReading(
-                  msg[1] as double, msg[2] as int, msg[3] as double));
+                  msg[1] as double,
+                  msg[2] as int,
+                  msg[3] as double,
+                  msg.length > 4 ? msg[4] as double : 0));
             }
         }
       }
@@ -174,6 +178,12 @@ void _workerMain(_WorkerConfig cfg) {
   final pitch = PitchAnalyzer(sampleRate: 22050);
   final tempo = TempoAnalyzer(sampleRate: 22050, beatUnits: cfg.beatUnits);
 
+  // Software gain: raw mic input often peaks at 1–5% of full scale, which
+  // starves level-dependent detection. See SignalNormalizer.
+  final normalizer = SignalNormalizer();
+  final stopwatch = Stopwatch()..start();
+  var lastStatusMs = 0;
+
   inbox.listen((msg) {
     if (msg is! Uint8List || msg.length < 4) return;
 
@@ -186,6 +196,7 @@ void _workerMain(_WorkerConfig cfg) {
       final b = bd.getInt16(i * 2 + 2, Endian.little);
       out[i >> 1] = (a + b) >> 1;
     }
+    normalizer.normalize(out);
 
     switch (mode) {
       case AnalysisMode.pitch:
@@ -194,7 +205,21 @@ void _workerMain(_WorkerConfig cfg) {
       case AnalysisMode.tempo:
         final r = tempo.process(out);
         if (r != null) {
-          cfg.out.send(['tempo', r.bpm, r.beatCount, r.stability]);
+          cfg.out.send(
+              ['tempo', r.bpm, r.beatCount, r.stability, r.level]);
+          lastStatusMs = stopwatch.elapsedMilliseconds;
+        } else if (stopwatch.elapsedMilliseconds - lastStatusMs > 150) {
+          // Periodic status between onsets: keeps the level meter and the
+          // "beats heard" counter live so users can SEE the mic listening.
+          lastStatusMs = stopwatch.elapsedMilliseconds;
+          final last = tempo.lastReading;
+          cfg.out.send([
+            'tempo',
+            last.bpm,
+            tempo.beatCount,
+            last.stability,
+            tempo.currentLevel,
+          ]);
         }
     }
   });
