@@ -48,7 +48,10 @@ class MicAnalysisService {
     if (!_stateCtrl.isClosed) _stateCtrl.add(s);
   }
 
-  Future<void> start(AnalysisMode mode) async {
+  /// [beatUnits] — eighth-note beat groups for mixed-meter tempo detection
+  /// (e.g. [2,2,3] for 7/8); empty = even-beat mode. Ignored for pitch.
+  Future<void> start(AnalysisMode mode,
+      {List<int> beatUnits = const []}) async {
     await stop();
 
     if (!await _recorder.hasPermission()) {
@@ -80,7 +83,7 @@ class MicAnalysisService {
     });
     _isolate = await Isolate.spawn(
       _workerMain,
-      _WorkerConfig(_fromWorker!.sendPort, mode.index),
+      _WorkerConfig(_fromWorker!.sendPort, mode.index, beatUnits),
       debugName: 'cadence-mic-analysis',
     );
     _workerPort = await ready.future;
@@ -134,7 +137,8 @@ class MicAnalysisService {
 class _WorkerConfig {
   final SendPort out;
   final int modeIndex;
-  const _WorkerConfig(this.out, this.modeIndex);
+  final List<int> beatUnits;
+  const _WorkerConfig(this.out, this.modeIndex, this.beatUnits);
 }
 
 void _workerMain(_WorkerConfig cfg) {
@@ -146,7 +150,7 @@ void _workerMain(_WorkerConfig cfg) {
   // (with pair-averaging as a crude anti-alias low-pass) halves the DSP cost
   // and everything musical we care about lives well below the new Nyquist.
   final pitch = PitchAnalyzer(sampleRate: 22050);
-  final tempo = TempoAnalyzer(sampleRate: 22050);
+  final tempo = TempoAnalyzer(sampleRate: 22050, beatUnits: cfg.beatUnits);
 
   inbox.listen((msg) {
     if (msg is! Uint8List || msg.length < 4) return;

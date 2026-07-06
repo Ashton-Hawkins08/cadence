@@ -13,7 +13,6 @@ class CalendarScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final currentMonth = ref.watch(calendarMonthProvider);
     final eventsAsync = ref.watch(calendarEventsProvider);
 

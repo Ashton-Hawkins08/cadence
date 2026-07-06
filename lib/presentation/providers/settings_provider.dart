@@ -1,13 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/data/repositories/settings_repository.dart';
-import 'calendar_provider.dart';
 import 'database_provider.dart';
 import 'exercises_provider.dart';
 import 'categories_provider.dart';
 import 'streak_provider.dart';
 import 'history_provider.dart';
-import 'piece_provider.dart';
 
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
   @override
@@ -96,7 +94,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 final settingsProvider =
     AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
 
-// Convenience — resolves ThemeMode for MaterialApp
+// Convenience â€” resolves ThemeMode for MaterialApp
 final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsProvider).valueOrNull;
   return switch (settings?.themePreference) {

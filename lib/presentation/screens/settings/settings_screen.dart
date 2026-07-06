@@ -439,15 +439,27 @@ class SettingsScreen extends ConsumerWidget {
     ),
     (
       'Archive',
-      'Archiving removes an item from your active list without deleting it. To archive a piece or exercise, tap the three-dot menu and choose Archive. To restore or permanently delete, go to Archive in the Manage menu. Deleting a category archives all its exercises together as a bundle.'
+      'Archiving removes an item from your active list without deleting it. To archive a piece or exercise, tap the three-dot menu and choose Archive. To restore or permanently delete, go to Archive in the Manage menu — it has tabs for exercises, category bundles, and pieces. Deleting a category archives all its exercises together as a bundle.'
     ),
     (
-      'Standard Metronome',
-      'Tap the metronome icon on the home screen. Use the +/- buttons or drag the BPM display to set tempo. Tap Tap Tempo to match a live tempo. Switch time signatures and subdivisions with the pickers below. The accent toggle controls whether beat 1 is emphasized.'
+      'Metronome & Tuner',
+      'Tap the metronome icon on the home screen. The first tab holds the metronome: set tempo by typing, sliding, or Tap Tempo; switch time signatures and subdivisions with the pickers. Swipe to the Tuner tab for the chromatic tuner — play a note and the needle shows how many cents sharp or flat you are (green = within 5¢).'
     ),
     (
-      'Piece Builder',
-      'Build a multi-section piece from the Pieces tab inside the metronome. Each section has its own BPM, time signature, and measure range. Tap the play button on a piece to run it — the metronome automatically transitions between sections and shows your position in the timeline.'
+      'Training Modes',
+      'On the metronome page: Blind BPM Randomizer hides a random tempo within a window around your base — deduce it by ear, tap the black block to reveal, and tap the Base chip to change the base or range. Cognitive Break makes the click drift ±1–3 BPM and randomly drops beats for a duration you pick, so your inner pulse does the work instead of muscle memory.'
+    ),
+    (
+      'Tempo Ear',
+      'Also on the metronome page: play any steady beat near your device and Cadence detects its BPM live. Pick your time signature first — odd meters like 5/8, 7/8, and 11/8 are understood by listening for their long-short beat groups. The result is the quarter-note BPM you\'d dial into the metronome.'
+    ),
+    (
+      'Scores & Pieces',
+      'Sheet music and measure tracking belong to your exercises. When adding an exercise (Manage → Categories & Exercises → Add Exercise), switch on "Attach Sheet Music" to import score pages and/or "Measure Tracking" to design a piece map — sections with their own BPM, time signature, and measure range that the metronome follows automatically. Browse everything from the Scores & Pieces tab inside the metronome: each exercise shows whether a score, a piece, or both are linked.'
+    ),
+    (
+      'Rehearsal Canvas',
+      'Open an exercise\'s score to rehearse with the metronome on screen. Draw on your music with the pen and highlighter (annotations save automatically), pinch to zoom, and toggle sheet visibility for a minimal beat display. If a piece map is linked you can set auto page turns — the page flips itself at the measures you choose — or just swipe pages manually while it plays.'
     ),
     (
       'Compound & Asymmetric Time Signatures',

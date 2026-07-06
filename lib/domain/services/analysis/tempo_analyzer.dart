@@ -8,12 +8,24 @@ import 'dart:typed_data';
 //   1. RMS energy per 512-sample frame (~23 ms @ 22.05 kHz)
 //   2. onset = envelope rises past (median + k·MAD) of the trailing second,
 //      with a refractory gap so one drum hit can't double-trigger
-//   3. Δt list → octave folding → median → BPM
+//   3. Δt list → interval model → BPM
 //
-// Octave folding handles the classic failure mode: subdivided playing (or a
-// missed quiet beat) produces intervals at 2× / ½× the true pulse. Each new
-// interval is folded by powers of two toward the running median before it
-// votes, so eighth-note bursts don't read as double time.
+// Two interval models:
+//
+// • GENERIC (even meters — x/4, and compound x/8 where every beat is a
+//   dotted quarter): beats are evenly spaced, so intervals are folded by
+//   powers of two toward the running median before voting. This handles the
+//   classic failure mode where subdivided playing (or a missed quiet beat)
+//   produces intervals at 2× / ½× the true pulse.
+//
+// • MIXED METER (5/8, 7/8, 11/8): main beats are NOT evenly spaced — a
+//   2+2+3 bar of 7/8 produces intervals in the ratio 2:2:3 of the eighth
+//   note, so power-of-two folding would tear it apart. Instead we solve for
+//   the eighth-note duration e that best explains every interval as k·e with
+//   k ∈ {2,3} (plus sums like 4,5,6 for missed beats), by iterating
+//   assign-ks → re-estimate e. The reported BPM is the QUARTER-note rate
+//   (60000 / 2e), matching the app's metronome convention where an eighth
+//   is multiplier 0.5 — so the number can be dialed straight in.
 //
 // Pure Dart, isolate-friendly, no dependencies.
 
@@ -34,6 +46,12 @@ class TempoReading {
 
 class TempoAnalyzer {
   final int sampleRate;
+
+  /// Mixed-meter mode: eighth-note lengths of the meter's main beats
+  /// (e.g. [2, 2, 3] for 7/8). Empty = generic even-beat mode. Only the SET
+  /// of group lengths matters for tempo — 2+2+3 and 3+2+2 detect identically.
+  final List<int> beatUnits;
+
   static const int _frameSize = 512;
 
   /// Two onsets closer than this are one transient (150 ms ⇒ ceiling of
@@ -50,7 +68,7 @@ class TempoAnalyzer {
   final _intervals = <double>[];
   int _beatCount = 0;
 
-  TempoAnalyzer({this.sampleRate = 22050});
+  TempoAnalyzer({this.sampleRate = 22050, this.beatUnits = const []});
 
   final _pending = <int>[];
 
@@ -108,36 +126,117 @@ class TempoAnalyzer {
   TempoReading _registerOnset(double tMs) {
     _beatCount++;
     if (_lastOnsetMs > -1e8) {
-      var interval = tMs - _lastOnsetMs;
-
-      // Octave-error folding: pull the new interval toward the running
-      // median by powers of two before it votes.
-      if (_intervals.length >= 3) {
-        final med = _median(_intervals);
-        while (interval > med * 1.8 && interval / 2 >= 200) {
-          interval /= 2; // heard every other beat → halve
+      final interval = tMs - _lastOnsetMs;
+      if (beatUnits.isEmpty) {
+        _addGenericInterval(interval);
+      } else {
+        // Mixed meter: store raw intervals; the unit solver interprets them.
+        if (interval >= 100 && interval <= 2500) {
+          _intervals.add(interval);
+          if (_intervals.length > 14) _intervals.removeAt(0);
         }
-        while (interval < med * 0.55 && interval * 2 <= 1500) {
-          interval *= 2; // heard a subdivision → double
-        }
-      }
-
-      // Only intervals inside the app's 40–300 BPM range vote.
-      if (interval >= 200 && interval <= 1500) {
-        _intervals.add(interval);
-        if (_intervals.length > 12) _intervals.removeAt(0);
       }
     }
 
     if (_intervals.length < 3) {
       return TempoReading(0, _beatCount, 0);
     }
+    return beatUnits.isEmpty ? _genericReading() : _mixedMeterReading();
+  }
+
+  void _addGenericInterval(double interval) {
+    var iv = interval;
+    // Octave-error folding: pull the new interval toward the running
+    // median by powers of two before it votes.
+    if (_intervals.length >= 3) {
+      final med = _median(_intervals);
+      while (iv > med * 1.8 && iv / 2 >= 200) {
+        iv /= 2; // heard every other beat → halve
+      }
+      while (iv < med * 0.55 && iv * 2 <= 1500) {
+        iv *= 2; // heard a subdivision → double
+      }
+    }
+    // Only intervals inside the app's 40–300 BPM range vote.
+    if (iv >= 200 && iv <= 1500) {
+      _intervals.add(iv);
+      if (_intervals.length > 12) _intervals.removeAt(0);
+    }
+  }
+
+  TempoReading _genericReading() {
     final med = _median(_intervals);
     final bpm = 60000.0 / med;
     // Stability: 1 − normalized spread of recent intervals.
     final spread = _mad([..._intervals]..sort(), med) / med;
     final stability = (1 - spread * 4).clamp(0.0, 1.0);
     return TempoReading(bpm, _beatCount, stability);
+  }
+
+  // ── Mixed-meter unit solver ─────────────────────────────────────────────────
+
+  /// Multiples of the eighth note an interval may represent: the meter's own
+  /// group lengths, plus sums of two adjacent groups (a missed quiet beat
+  /// merges its two intervals — e.g. 2+3 = 5 eighths in 7/8).
+  late final List<int> _allowedKs = () {
+    final base = beatUnits.toSet();
+    final sums = <int>{};
+    for (final a in base) {
+      for (final b in base) {
+        sums.add(a + b);
+      }
+    }
+    return ({...base, ...sums}.toList()..sort());
+  }();
+
+  TempoReading _mixedMeterReading() {
+    // Iteratively solve for the eighth-note duration e:
+    //   1. seed: assume the average interval is an average beat
+    //   2. assign each interval its best k ∈ allowed multiples
+    //   3. e = median of interval/k;  repeat with better assignments
+    final avgUnits =
+        beatUnits.fold<int>(0, (a, b) => a + b) / beatUnits.length;
+    var e = _median(_intervals) / avgUnits;
+
+    for (var iteration = 0; iteration < 3; iteration++) {
+      final estimates = <double>[];
+      for (final interval in _intervals) {
+        final k = _bestK(interval, e);
+        estimates.add(interval / k);
+      }
+      e = _median(estimates);
+    }
+
+    // Musical sanity: eighth between 100 ms (♩=300) and 750 ms (♩=40).
+    if (e < 100 || e > 750) return TempoReading(0, _beatCount, 0);
+
+    // Stability = fraction of intervals that fit their nearest multiple
+    // within 12%. Outliers (extra ghost notes, missed onsets beyond the
+    // allowed sums) reduce confidence instead of skewing the estimate.
+    var fits = 0;
+    for (final interval in _intervals) {
+      final k = _bestK(interval, e);
+      if ((interval - k * e).abs() / (k * e) <= 0.12) fits++;
+    }
+    final stability = fits / _intervals.length;
+
+    // Report the QUARTER-note rate (eighth × 2) — the number the user dials
+    // into the metronome for this signature.
+    final bpm = 60000.0 / (2 * e);
+    return TempoReading(bpm, _beatCount, stability);
+  }
+
+  int _bestK(double interval, double e) {
+    var best = _allowedKs.first;
+    var bestErr = double.infinity;
+    for (final k in _allowedKs) {
+      final err = (interval - k * e).abs();
+      if (err < bestErr) {
+        bestErr = err;
+        best = k;
+      }
+    }
+    return best;
   }
 
   static double _median(List<double> xs) {

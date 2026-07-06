@@ -12,7 +12,6 @@ import 'package:cadence/presentation/screens/stats/stats_screen.dart';
 import 'package:cadence/presentation/screens/history/history_screen.dart';
 import 'package:cadence/presentation/screens/manage/category_exercises_screen.dart';
 import 'package:cadence/presentation/screens/archive/archive_screen.dart';
-import 'package:cadence/presentation/screens/audit/practice_audit_screen.dart';
 import 'package:cadence/presentation/providers/nav_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -366,14 +365,6 @@ class _ManageSheet extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, _slide(const HistoryScreen()));
-              },
-            ),
-            _ManageOption(
-              icon: Icons.verified_outlined,
-              label: 'Practice Audit Log',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, _slide(const PracticeAuditScreen()));
               },
             ),
             _ManageOption(

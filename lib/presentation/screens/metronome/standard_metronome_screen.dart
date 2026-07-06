@@ -9,6 +9,7 @@ import 'package:cadence/core/constants/metronome_constants.dart';
 import 'package:cadence/presentation/providers/metronome_provider.dart';
 import 'package:cadence/presentation/providers/randomizer_provider.dart';
 import 'package:cadence/presentation/providers/cognitive_break_provider.dart';
+import 'tempo_ear_sheet.dart';
 
 class StandardMetronomeScreen extends ConsumerStatefulWidget {
   const StandardMetronomeScreen({super.key});
@@ -88,17 +89,9 @@ class _StandardMetronomeScreenState
       if (_bpmController.text != s) _bpmController.text = s;
     }
 
+    // No AppBar here — this screen is hosted inside the Metronome | Tuner
+    // tab pager (metronome_tuner_screen.dart), which owns the header.
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text('Metronome',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        elevation: 0,
-      ),
       backgroundColor:
           isDark ? AppColors.darkBackground : AppColors.lightBackground,
       body: SafeArea(
@@ -195,7 +188,8 @@ class _StandardMetronomeScreenState
                   onTap: () => ref.read(randomizerProvider.notifier).reveal(),
                 ),
                 const SizedBox(height: 12),
-                _RandomizerControls(baseBpm: rand.baseBpm, isDark: isDark),
+                _RandomizerControls(
+                    baseBpm: rand.baseBpm, range: rand.range, isDark: isDark),
               ],
 
               const SizedBox(height: 20),
@@ -284,6 +278,8 @@ class _StandardMetronomeScreenState
               _RandomizerToggleCard(isDark: isDark),
               const SizedBox(height: 8),
               _CognitiveBreakCard(state: state, isDark: isDark),
+              const SizedBox(height: 8),
+              _TempoEarCard(isDark: isDark),
 
               const SizedBox(height: 28),
 
@@ -544,13 +540,101 @@ class _HiddenBpmBlock extends StatelessWidget {
   }
 }
 
-// ── Blind randomizer: base chip + re-roll button ──────────────────────────────
+// ── Blind randomizer: base/range chip + re-roll button ────────────────────────
 
 class _RandomizerControls extends ConsumerWidget {
   final int baseBpm;
+  final int range;
   final bool isDark;
 
-  const _RandomizerControls({required this.baseBpm, required this.isDark});
+  const _RandomizerControls({
+    required this.baseBpm,
+    required this.range,
+    required this.isDark,
+  });
+
+  Future<void> _editWindow(BuildContext context, WidgetRef ref) async {
+    final baseCtrl = TextEditingController(text: '$baseBpm');
+    final rangeCtrl = TextEditingController(text: '$range');
+    final formKey = GlobalKey<FormState>();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Randomizer Window'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: baseCtrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Base BPM',
+                  hintText: '1 – 300',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(v ?? '');
+                  if (n == null ||
+                      n < AppConstants.minBpm ||
+                      n > AppConstants.maxBpm) {
+                    return 'Between ${AppConstants.minBpm} and ${AppConstants.maxBpm}';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: rangeCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Range (±)',
+                  hintText: 'e.g. 40 → base 120 rolls 80–160',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(v ?? '');
+                  if (n == null || n < 1 || n >= AppConstants.maxBpm) {
+                    return 'Between 1 and ${AppConstants.maxBpm - 1}';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The window always stays inside 1–${AppConstants.maxBpm} BPM.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, true);
+                }
+              },
+              child: const Text('Apply')),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      ref.read(randomizerProvider.notifier).configure(
+            baseBpm: int.parse(baseCtrl.text),
+            range: int.parse(rangeCtrl.text),
+          );
+    }
+    baseCtrl.dispose();
+    rangeCtrl.dispose();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -558,16 +642,30 @@ class _RandomizerControls extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkCard : AppColors.lightCard,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Base $baseBpm  ±${RandomizerController.range}',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+        // Tappable: correct the base or widen/narrow the roll window.
+        GestureDetector(
+          onTap: () => _editWindow(context, ref),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkCard : AppColors.lightCard,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.indigoNavySoft.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Base $baseBpm  ±$range',
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.edit, size: 13, color: AppColors.indigoNavySoft),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -615,7 +713,7 @@ class _RandomizerToggleCard extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(fontWeight: FontWeight.w600)),
                 Text(
-                  'Hidden tempo within ±${RandomizerController.range} of your base',
+                  'Hidden tempo within ±${rand.range} of your base',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: isDark
                         ? AppColors.darkTextSecondary
@@ -627,13 +725,64 @@ class _RandomizerToggleCard extends ConsumerWidget {
           ),
           Switch(
             value: rand.enabled,
-            activeColor: AppColors.streakGold,
+            activeColor: AppColors.indigoNavySoft,
             onChanged: (on) {
               final ctrl = ref.read(randomizerProvider.notifier);
               on ? ctrl.enable() : ctrl.disable();
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Tempo Ear card ────────────────────────────────────────────────────────────
+
+class _TempoEarCard extends StatelessWidget {
+  final bool isDark;
+  const _TempoEarCard({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: () => showTempoEarSheet(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : AppColors.lightCard,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.hearing, size: 20, color: AppColors.indigoNavySoft),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Tempo Ear',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Hear a tempo, get its BPM — odd meters included',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                size: 20,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.lightTextSecondary),
+          ],
+        ),
       ),
     );
   }
@@ -768,7 +917,7 @@ class _CognitiveBreakCardState extends ConsumerState<_CognitiveBreakCard> {
                       : 'Tempo drift ±3 BPM · surprise dropped beats',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: active
-                        ? AppColors.streakGold
+                        ? AppColors.indigoNavySoft
                         : (isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.lightTextSecondary),
@@ -786,7 +935,7 @@ class _CognitiveBreakCardState extends ConsumerState<_CognitiveBreakCard> {
           ),
           Switch(
             value: active,
-            activeColor: AppColors.streakGold,
+            activeColor: AppColors.indigoNavySoft,
             onChanged: (on) {
               if (on) {
                 // The break needs a running clock to attach to.

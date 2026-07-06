@@ -5,7 +5,7 @@ import 'metronome_provider.dart';
 
 // ── Blind BPM Randomizer ──────────────────────────────────────────────────────
 //
-// Training mode: the app picks a random tempo within ±30 BPM of a locked
+// Training mode: the app picks a random tempo within ±range BPM of a locked
 // baseline and hides the number behind a blacked-out block. The musician
 // plays along by ear, deduces the speed, then taps the block to reveal it.
 //
@@ -21,19 +21,27 @@ class RandomizerState {
   /// hidden tempo — so the window can't drift over repeated rolls.
   final int baseBpm;
 
+  /// Half-width of the roll window, user-adjustable (default ±30). A base of
+  /// 120 with range 40 rolls from 80–160. The window is always clamped to
+  /// the app's 1–300 BPM limits — the range can never bypass the cap.
+  final int range;
+
   /// Whether the hidden tempo is currently visible (after a tap-to-reveal).
   final bool revealed;
 
   const RandomizerState({
     this.enabled = false,
     this.baseBpm = 100,
+    this.range = 30,
     this.revealed = false,
   });
 
-  RandomizerState copyWith({bool? enabled, int? baseBpm, bool? revealed}) {
+  RandomizerState copyWith(
+      {bool? enabled, int? baseBpm, int? range, bool? revealed}) {
     return RandomizerState(
       enabled: enabled ?? this.enabled,
       baseBpm: baseBpm ?? this.baseBpm,
+      range: range ?? this.range,
       revealed: revealed ?? this.revealed,
     );
   }
@@ -45,18 +53,17 @@ class RandomizerController extends StateNotifier<RandomizerState> {
   final Ref _ref;
   final _rng = Random();
 
-  /// Spec: exactly 30 below and 30 above the locked baseline.
-  static const int range = 30;
+  static const int defaultRange = 30;
 
   MetronomeEngine get _engine => _ref.read(metronomeEngineProvider);
 
   /// Locks the CURRENT engine tempo as the baseline and rolls the first
-  /// hidden tempo.
+  /// hidden tempo. The previously chosen range is kept.
   void enable() {
     final base = _engine.bpm;
-    state = RandomizerState(enabled: true, baseBpm: base, revealed: false);
-    _ref.read(auditRecorderProvider).randomizerActive = true;
-    _roll(base);
+    state = RandomizerState(
+        enabled: true, baseBpm: base, range: state.range, revealed: false);
+    _roll();
   }
 
   /// Restores the locked baseline tempo so the user gets back exactly what
@@ -64,15 +71,25 @@ class RandomizerController extends StateNotifier<RandomizerState> {
   void disable() {
     if (!state.enabled) return;
     _engine.setBpm(state.baseBpm);
-    _ref.read(auditRecorderProvider).randomizerActive = false;
     state = state.copyWith(enabled: false, revealed: false);
+  }
+
+  /// User corrected the base and/or range mid-session (tapping the "Base
+  /// 100 ±30" chip). Values are clamped to the app's BPM limits, then a
+  /// fresh hidden tempo is rolled from the new window.
+  void configure({required int baseBpm, required int range}) {
+    if (!state.enabled) return;
+    final base = baseBpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
+    final r = range.clamp(1, AppConstants.maxBpm - 1);
+    state = state.copyWith(baseBpm: base, range: r, revealed: false);
+    _roll();
   }
 
   /// New random tempo from the ORIGINAL baseline window; re-hides the value.
   void randomizeAgain() {
     if (!state.enabled) return;
     state = state.copyWith(revealed: false);
-    _roll(state.baseBpm);
+    _roll();
   }
 
   void reveal() {
@@ -80,11 +97,12 @@ class RandomizerController extends StateNotifier<RandomizerState> {
     state = state.copyWith(revealed: true);
   }
 
-  void _roll(int base) {
-    // Window clamped to the app's valid BPM range (a base of 20 can't go
-    // below minBpm, a base of 290 can't exceed maxBpm).
-    final lo = max(AppConstants.minBpm, base - range);
-    final hi = min(AppConstants.maxBpm, base + range);
+  void _roll() {
+    // Window clamped to the app's valid BPM range: base 290 with range 20
+    // rolls from 270–300, never past the 300 cap; a low base can't go
+    // under minBpm either.
+    final lo = max(AppConstants.minBpm, state.baseBpm - state.range);
+    final hi = min(AppConstants.maxBpm, state.baseBpm + state.range);
     var next = lo + _rng.nextInt(hi - lo + 1);
     // Never land on the tempo that's already playing — a roll that changes
     // nothing would be indistinguishable from a broken button.

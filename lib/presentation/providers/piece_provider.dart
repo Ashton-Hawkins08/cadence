@@ -1,21 +1,20 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/data/database/app_database.dart';
-import 'package:cadence/data/repositories/piece_repository.dart';
 import 'database_provider.dart';
 
-// ── Active pieces (not archived) ──────────────────────────────────────────────
+// â”€â”€ Active pieces (not archived) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 final allPiecesProvider = StreamProvider<List<MetronomePiece>>((ref) {
   return ref.watch(pieceRepositoryProvider).watchAll();
 });
 
-// ── Archived pieces ───────────────────────────────────────────────────────────
+// â”€â”€ Archived pieces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 final archivedPiecesProvider = StreamProvider<List<MetronomePiece>>((ref) {
   return ref.watch(pieceRepositoryProvider).watchArchived();
 });
 
-// ── Sections for a given piece ────────────────────────────────────────────────
+// â”€â”€ Sections for a given piece â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 final pieceSectionsProvider =
     StreamProvider.family<List<PieceSection>, int>((ref, pieceId) {

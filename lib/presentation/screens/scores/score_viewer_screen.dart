@@ -31,10 +31,15 @@ class ScoreViewerScreen extends ConsumerStatefulWidget {
   final ScoreFolder folder;
   final int initialPage;
 
+  /// Opens the page-turn trigger editor immediately (used by the Add
+  /// Exercise flow right after sheet + piece were both attached).
+  final bool openTurnEditor;
+
   const ScoreViewerScreen({
     super.key,
     required this.folder,
     this.initialPage = 0,
+    this.openTurnEditor = false,
   });
 
   @override
@@ -64,9 +69,14 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
   void initState() {
     super.initState();
     _pageCtrl = PageController(initialPage: widget.initialPage);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _preloadAnnotations();
       _stateSub = _engine.stateStream.listen(_onMetronomeState);
+      if (widget.openTurnEditor && mounted) {
+        final pages =
+            await ref.read(scoreRepositoryProvider).getPages(widget.folder.id);
+        if (pages.isNotEmpty && mounted) await _editTurns(pages);
+      }
     });
   }
 

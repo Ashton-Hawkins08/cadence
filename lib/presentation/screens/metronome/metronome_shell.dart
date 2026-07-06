@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/presentation/providers/metronome_provider.dart';
-import 'package:cadence/presentation/screens/tuner/tuner_screen.dart';
-import 'package:cadence/presentation/screens/scores/scores_screen.dart';
-import 'standard_metronome_screen.dart';
-import 'piece_builder/piece_list_screen.dart';
+import 'package:cadence/presentation/screens/scores/scores_pieces_screen.dart';
+import 'metronome_tuner_screen.dart';
 
 // Which tab is active inside the metronome module
-enum _MetronomeTab { standard, pieceBuilder, scores, tuner }
+enum _MetronomeTab { metronomeTuner, scoresPieces }
 
 class MetronomeShell extends ConsumerStatefulWidget {
   const MetronomeShell({super.key});
@@ -18,15 +16,14 @@ class MetronomeShell extends ConsumerStatefulWidget {
 }
 
 class _MetronomeShellState extends ConsumerState<MetronomeShell> {
-  _MetronomeTab _tab = _MetronomeTab.standard;
+  _MetronomeTab _tab = _MetronomeTab.metronomeTuner;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final navBg =
-        isDark ? AppColors.darkNavBar : AppColors.lightNavBar;
+    final navBg = isDark ? AppColors.darkNavBar : AppColors.lightNavBar;
     final activeColor = AppColors.indigoNavySoft;
     final inactiveColor =
         isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
@@ -35,88 +32,65 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
       body: IndexedStack(
         index: _tab.index,
         children: const [
-          StandardMetronomeScreen(),
-          PieceListScreen(),
-          ScoresScreen(),
-          TunerScreen(),
+          MetronomeTunerScreen(),
+          ScoresPiecesScreen(),
         ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-        height: 64,
-        color: navBg,
-        child: Row(
-          children: [
-            // Left — Standard
-            Expanded(
-              child: _NavButton(
-                icon: Icons.av_timer,
-                label: 'Standard',
-                active: _tab == _MetronomeTab.standard,
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-                onTap: () => setState(() => _tab = _MetronomeTab.standard),
+          height: 64,
+          color: navBg,
+          // One Expanded slot on each side of the fixed-width logo keeps the
+          // Cadence "C" exactly centered regardless of label lengths.
+          child: Row(
+            children: [
+              // Left — Metronome + Tuner pager
+              Expanded(
+                child: _NavButton(
+                  icon: Icons.av_timer,
+                  label: 'Metronome',
+                  active: _tab == _MetronomeTab.metronomeTuner,
+                  activeColor: activeColor,
+                  inactiveColor: inactiveColor,
+                  onTap: () =>
+                      setState(() => _tab = _MetronomeTab.metronomeTuner),
+                ),
               ),
-            ),
 
-            // Center — Cadence logo → exits metronome
-            GestureDetector(
-              onTap: _exitMetronome,
-              child: SizedBox(
-                width: 64,
-                height: 64,
-                child: Center(
-                  child: Image.asset(
-                    isDark
-                        ? 'assets/images/logo_dark_symbol.png'
-                        : 'assets/images/logo_light_symbol.png',
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.contain,
+              // Center — Cadence logo → exits metronome
+              GestureDetector(
+                onTap: _exitMetronome,
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: Center(
+                    child: Image.asset(
+                      isDark
+                          ? 'assets/images/logo_dark_symbol.png'
+                          : 'assets/images/logo_light_symbol.png',
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Right — Piece Builder
-            Expanded(
-              child: _NavButton(
-                icon: Icons.queue_music,
-                label: 'Pieces',
-                active: _tab == _MetronomeTab.pieceBuilder,
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-                onTap: () =>
-                    setState(() => _tab = _MetronomeTab.pieceBuilder),
+              // Right — Scores & Pieces (exercise-linked sheet music + maps)
+              Expanded(
+                child: _NavButton(
+                  icon: Icons.menu_book_outlined,
+                  label: 'Scores & Pieces',
+                  active: _tab == _MetronomeTab.scoresPieces,
+                  activeColor: activeColor,
+                  inactiveColor: inactiveColor,
+                  onTap: () =>
+                      setState(() => _tab = _MetronomeTab.scoresPieces),
+                ),
               ),
-            ),
-
-            // Scores — sheet music vault + rehearsal canvas
-            Expanded(
-              child: _NavButton(
-                icon: Icons.menu_book_outlined,
-                label: 'Scores',
-                active: _tab == _MetronomeTab.scores,
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-                onTap: () => setState(() => _tab = _MetronomeTab.scores),
-              ),
-            ),
-
-            // Far right — Chromatic Tuner (bespoke tuning-fork icon)
-            Expanded(
-              child: _NavButton(
-                customIcon: (color) => TuningForkIcon(size: 22, color: color),
-                label: 'Tuner',
-                active: _tab == _MetronomeTab.tuner,
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-                onTap: () => setState(() => _tab = _MetronomeTab.tuner),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -130,9 +104,7 @@ class _MetronomeShellState extends ConsumerState<MetronomeShell> {
 }
 
 class _NavButton extends StatelessWidget {
-  final IconData? icon;
-  // Custom-painted icons (e.g. the tuning fork) get the resolved color.
-  final Widget Function(Color color)? customIcon;
+  final IconData icon;
   final String label;
   final bool active;
   final Color activeColor;
@@ -140,8 +112,7 @@ class _NavButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _NavButton({
-    this.icon,
-    this.customIcon,
+    required this.icon,
     required this.label,
     required this.active,
     required this.activeColor,
@@ -158,17 +129,13 @@ class _NavButton extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (customIcon != null)
-            SizedBox(height: 22, child: customIcon!(color))
-          else
-            Icon(icon, size: 22, color: color),
+          Icon(icon, size: 22, color: color),
           const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: color,
-                  fontWeight:
-                      active ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.normal,
                   fontSize: 10,
                 ),
           ),

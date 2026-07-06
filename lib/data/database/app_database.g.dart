@@ -3515,6 +3515,17 @@ class $MetronomePiecesTable extends MetronomePieces
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _exerciseIdMeta = const VerificationMeta(
+    'exerciseId',
+  );
+  @override
+  late final GeneratedColumn<int> exerciseId = GeneratedColumn<int>(
+    'exercise_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3522,6 +3533,7 @@ class $MetronomePiecesTable extends MetronomePieces
     createdAt,
     modifiedAt,
     isArchived,
+    exerciseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3568,6 +3580,12 @@ class $MetronomePiecesTable extends MetronomePieces
         isArchived.isAcceptableOrUnknown(data['is_archived']!, _isArchivedMeta),
       );
     }
+    if (data.containsKey('exercise_id')) {
+      context.handle(
+        _exerciseIdMeta,
+        exerciseId.isAcceptableOrUnknown(data['exercise_id']!, _exerciseIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3597,6 +3615,10 @@ class $MetronomePiecesTable extends MetronomePieces
         DriftSqlType.bool,
         data['${effectivePrefix}is_archived'],
       )!,
+      exerciseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}exercise_id'],
+      ),
     );
   }
 
@@ -3612,12 +3634,14 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
   final DateTime createdAt;
   final DateTime modifiedAt;
   final bool isArchived;
+  final int? exerciseId;
   const MetronomePiece({
     required this.id,
     required this.title,
     required this.createdAt,
     required this.modifiedAt,
     required this.isArchived,
+    this.exerciseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3627,6 +3651,9 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['modified_at'] = Variable<DateTime>(modifiedAt);
     map['is_archived'] = Variable<bool>(isArchived);
+    if (!nullToAbsent || exerciseId != null) {
+      map['exercise_id'] = Variable<int>(exerciseId);
+    }
     return map;
   }
 
@@ -3637,6 +3664,9 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
       createdAt: Value(createdAt),
       modifiedAt: Value(modifiedAt),
       isArchived: Value(isArchived),
+      exerciseId: exerciseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exerciseId),
     );
   }
 
@@ -3651,6 +3681,7 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
       isArchived: serializer.fromJson<bool>(json['isArchived']),
+      exerciseId: serializer.fromJson<int?>(json['exerciseId']),
     );
   }
   @override
@@ -3662,6 +3693,7 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
       'isArchived': serializer.toJson<bool>(isArchived),
+      'exerciseId': serializer.toJson<int?>(exerciseId),
     };
   }
 
@@ -3671,12 +3703,14 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
     DateTime? createdAt,
     DateTime? modifiedAt,
     bool? isArchived,
+    Value<int?> exerciseId = const Value.absent(),
   }) => MetronomePiece(
     id: id ?? this.id,
     title: title ?? this.title,
     createdAt: createdAt ?? this.createdAt,
     modifiedAt: modifiedAt ?? this.modifiedAt,
     isArchived: isArchived ?? this.isArchived,
+    exerciseId: exerciseId.present ? exerciseId.value : this.exerciseId,
   );
   MetronomePiece copyWithCompanion(MetronomePiecesCompanion data) {
     return MetronomePiece(
@@ -3689,6 +3723,9 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
       isArchived: data.isArchived.present
           ? data.isArchived.value
           : this.isArchived,
+      exerciseId: data.exerciseId.present
+          ? data.exerciseId.value
+          : this.exerciseId,
     );
   }
 
@@ -3699,13 +3736,15 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
           ..write('title: $title, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
-          ..write('isArchived: $isArchived')
+          ..write('isArchived: $isArchived, ')
+          ..write('exerciseId: $exerciseId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, createdAt, modifiedAt, isArchived);
+  int get hashCode =>
+      Object.hash(id, title, createdAt, modifiedAt, isArchived, exerciseId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3714,7 +3753,8 @@ class MetronomePiece extends DataClass implements Insertable<MetronomePiece> {
           other.title == this.title &&
           other.createdAt == this.createdAt &&
           other.modifiedAt == this.modifiedAt &&
-          other.isArchived == this.isArchived);
+          other.isArchived == this.isArchived &&
+          other.exerciseId == this.exerciseId);
 }
 
 class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
@@ -3723,12 +3763,14 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
   final Value<DateTime> createdAt;
   final Value<DateTime> modifiedAt;
   final Value<bool> isArchived;
+  final Value<int?> exerciseId;
   const MetronomePiecesCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.isArchived = const Value.absent(),
+    this.exerciseId = const Value.absent(),
   });
   MetronomePiecesCompanion.insert({
     this.id = const Value.absent(),
@@ -3736,6 +3778,7 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
     required DateTime createdAt,
     required DateTime modifiedAt,
     this.isArchived = const Value.absent(),
+    this.exerciseId = const Value.absent(),
   }) : title = Value(title),
        createdAt = Value(createdAt),
        modifiedAt = Value(modifiedAt);
@@ -3745,6 +3788,7 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? modifiedAt,
     Expression<bool>? isArchived,
+    Expression<int>? exerciseId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3752,6 +3796,7 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
       if (createdAt != null) 'created_at': createdAt,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (isArchived != null) 'is_archived': isArchived,
+      if (exerciseId != null) 'exercise_id': exerciseId,
     });
   }
 
@@ -3761,6 +3806,7 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
     Value<DateTime>? createdAt,
     Value<DateTime>? modifiedAt,
     Value<bool>? isArchived,
+    Value<int?>? exerciseId,
   }) {
     return MetronomePiecesCompanion(
       id: id ?? this.id,
@@ -3768,6 +3814,7 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       isArchived: isArchived ?? this.isArchived,
+      exerciseId: exerciseId ?? this.exerciseId,
     );
   }
 
@@ -3789,6 +3836,9 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
     if (isArchived.present) {
       map['is_archived'] = Variable<bool>(isArchived.value);
     }
+    if (exerciseId.present) {
+      map['exercise_id'] = Variable<int>(exerciseId.value);
+    }
     return map;
   }
 
@@ -3799,7 +3849,8 @@ class MetronomePiecesCompanion extends UpdateCompanion<MetronomePiece> {
           ..write('title: $title, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
-          ..write('isArchived: $isArchived')
+          ..write('isArchived: $isArchived, ')
+          ..write('exerciseId: $exerciseId')
           ..write(')'))
         .toString();
   }
@@ -4376,706 +4427,6 @@ class PieceSectionsCompanion extends UpdateCompanion<PieceSection> {
   }
 }
 
-class $AuditSessionsTable extends AuditSessions
-    with TableInfo<$AuditSessionsTable, AuditSession> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $AuditSessionsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _startedAtMeta = const VerificationMeta(
-    'startedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
-    'started_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _endedAtMeta = const VerificationMeta(
-    'endedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> endedAt = GeneratedColumn<DateTime>(
-    'ended_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _secondsMeta = const VerificationMeta(
-    'seconds',
-  );
-  @override
-  late final GeneratedColumn<int> seconds = GeneratedColumn<int>(
-    'seconds',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _bpmLowMeta = const VerificationMeta('bpmLow');
-  @override
-  late final GeneratedColumn<int> bpmLow = GeneratedColumn<int>(
-    'bpm_low',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _bpmHighMeta = const VerificationMeta(
-    'bpmHigh',
-  );
-  @override
-  late final GeneratedColumn<int> bpmHigh = GeneratedColumn<int>(
-    'bpm_high',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _bpmLastMeta = const VerificationMeta(
-    'bpmLast',
-  );
-  @override
-  late final GeneratedColumn<int> bpmLast = GeneratedColumn<int>(
-    'bpm_last',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _timeSignatureMeta = const VerificationMeta(
-    'timeSignature',
-  );
-  @override
-  late final GeneratedColumn<String> timeSignature = GeneratedColumn<String>(
-    'time_signature',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _subdivisionMeta = const VerificationMeta(
-    'subdivision',
-  );
-  @override
-  late final GeneratedColumn<String> subdivision = GeneratedColumn<String>(
-    'subdivision',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
-  @override
-  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
-    'mode',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _prevHashMeta = const VerificationMeta(
-    'prevHash',
-  );
-  @override
-  late final GeneratedColumn<String> prevHash = GeneratedColumn<String>(
-    'prev_hash',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _entryHashMeta = const VerificationMeta(
-    'entryHash',
-  );
-  @override
-  late final GeneratedColumn<String> entryHash = GeneratedColumn<String>(
-    'entry_hash',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    startedAt,
-    endedAt,
-    seconds,
-    bpmLow,
-    bpmHigh,
-    bpmLast,
-    timeSignature,
-    subdivision,
-    mode,
-    prevHash,
-    entryHash,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'audit_sessions';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<AuditSession> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('started_at')) {
-      context.handle(
-        _startedAtMeta,
-        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_startedAtMeta);
-    }
-    if (data.containsKey('ended_at')) {
-      context.handle(
-        _endedAtMeta,
-        endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_endedAtMeta);
-    }
-    if (data.containsKey('seconds')) {
-      context.handle(
-        _secondsMeta,
-        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_secondsMeta);
-    }
-    if (data.containsKey('bpm_low')) {
-      context.handle(
-        _bpmLowMeta,
-        bpmLow.isAcceptableOrUnknown(data['bpm_low']!, _bpmLowMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_bpmLowMeta);
-    }
-    if (data.containsKey('bpm_high')) {
-      context.handle(
-        _bpmHighMeta,
-        bpmHigh.isAcceptableOrUnknown(data['bpm_high']!, _bpmHighMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_bpmHighMeta);
-    }
-    if (data.containsKey('bpm_last')) {
-      context.handle(
-        _bpmLastMeta,
-        bpmLast.isAcceptableOrUnknown(data['bpm_last']!, _bpmLastMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_bpmLastMeta);
-    }
-    if (data.containsKey('time_signature')) {
-      context.handle(
-        _timeSignatureMeta,
-        timeSignature.isAcceptableOrUnknown(
-          data['time_signature']!,
-          _timeSignatureMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_timeSignatureMeta);
-    }
-    if (data.containsKey('subdivision')) {
-      context.handle(
-        _subdivisionMeta,
-        subdivision.isAcceptableOrUnknown(
-          data['subdivision']!,
-          _subdivisionMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_subdivisionMeta);
-    }
-    if (data.containsKey('mode')) {
-      context.handle(
-        _modeMeta,
-        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_modeMeta);
-    }
-    if (data.containsKey('prev_hash')) {
-      context.handle(
-        _prevHashMeta,
-        prevHash.isAcceptableOrUnknown(data['prev_hash']!, _prevHashMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_prevHashMeta);
-    }
-    if (data.containsKey('entry_hash')) {
-      context.handle(
-        _entryHashMeta,
-        entryHash.isAcceptableOrUnknown(data['entry_hash']!, _entryHashMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_entryHashMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  AuditSession map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return AuditSession(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      startedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}started_at'],
-      )!,
-      endedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}ended_at'],
-      )!,
-      seconds: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}seconds'],
-      )!,
-      bpmLow: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}bpm_low'],
-      )!,
-      bpmHigh: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}bpm_high'],
-      )!,
-      bpmLast: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}bpm_last'],
-      )!,
-      timeSignature: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}time_signature'],
-      )!,
-      subdivision: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}subdivision'],
-      )!,
-      mode: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}mode'],
-      )!,
-      prevHash: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}prev_hash'],
-      )!,
-      entryHash: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}entry_hash'],
-      )!,
-    );
-  }
-
-  @override
-  $AuditSessionsTable createAlias(String alias) {
-    return $AuditSessionsTable(attachedDatabase, alias);
-  }
-}
-
-class AuditSession extends DataClass implements Insertable<AuditSession> {
-  final int id;
-  final DateTime startedAt;
-  final DateTime endedAt;
-  final int seconds;
-  final int bpmLow;
-  final int bpmHigh;
-  final int bpmLast;
-  final String timeSignature;
-  final String subdivision;
-  final String mode;
-  final String prevHash;
-  final String entryHash;
-  const AuditSession({
-    required this.id,
-    required this.startedAt,
-    required this.endedAt,
-    required this.seconds,
-    required this.bpmLow,
-    required this.bpmHigh,
-    required this.bpmLast,
-    required this.timeSignature,
-    required this.subdivision,
-    required this.mode,
-    required this.prevHash,
-    required this.entryHash,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['started_at'] = Variable<DateTime>(startedAt);
-    map['ended_at'] = Variable<DateTime>(endedAt);
-    map['seconds'] = Variable<int>(seconds);
-    map['bpm_low'] = Variable<int>(bpmLow);
-    map['bpm_high'] = Variable<int>(bpmHigh);
-    map['bpm_last'] = Variable<int>(bpmLast);
-    map['time_signature'] = Variable<String>(timeSignature);
-    map['subdivision'] = Variable<String>(subdivision);
-    map['mode'] = Variable<String>(mode);
-    map['prev_hash'] = Variable<String>(prevHash);
-    map['entry_hash'] = Variable<String>(entryHash);
-    return map;
-  }
-
-  AuditSessionsCompanion toCompanion(bool nullToAbsent) {
-    return AuditSessionsCompanion(
-      id: Value(id),
-      startedAt: Value(startedAt),
-      endedAt: Value(endedAt),
-      seconds: Value(seconds),
-      bpmLow: Value(bpmLow),
-      bpmHigh: Value(bpmHigh),
-      bpmLast: Value(bpmLast),
-      timeSignature: Value(timeSignature),
-      subdivision: Value(subdivision),
-      mode: Value(mode),
-      prevHash: Value(prevHash),
-      entryHash: Value(entryHash),
-    );
-  }
-
-  factory AuditSession.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return AuditSession(
-      id: serializer.fromJson<int>(json['id']),
-      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
-      endedAt: serializer.fromJson<DateTime>(json['endedAt']),
-      seconds: serializer.fromJson<int>(json['seconds']),
-      bpmLow: serializer.fromJson<int>(json['bpmLow']),
-      bpmHigh: serializer.fromJson<int>(json['bpmHigh']),
-      bpmLast: serializer.fromJson<int>(json['bpmLast']),
-      timeSignature: serializer.fromJson<String>(json['timeSignature']),
-      subdivision: serializer.fromJson<String>(json['subdivision']),
-      mode: serializer.fromJson<String>(json['mode']),
-      prevHash: serializer.fromJson<String>(json['prevHash']),
-      entryHash: serializer.fromJson<String>(json['entryHash']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'startedAt': serializer.toJson<DateTime>(startedAt),
-      'endedAt': serializer.toJson<DateTime>(endedAt),
-      'seconds': serializer.toJson<int>(seconds),
-      'bpmLow': serializer.toJson<int>(bpmLow),
-      'bpmHigh': serializer.toJson<int>(bpmHigh),
-      'bpmLast': serializer.toJson<int>(bpmLast),
-      'timeSignature': serializer.toJson<String>(timeSignature),
-      'subdivision': serializer.toJson<String>(subdivision),
-      'mode': serializer.toJson<String>(mode),
-      'prevHash': serializer.toJson<String>(prevHash),
-      'entryHash': serializer.toJson<String>(entryHash),
-    };
-  }
-
-  AuditSession copyWith({
-    int? id,
-    DateTime? startedAt,
-    DateTime? endedAt,
-    int? seconds,
-    int? bpmLow,
-    int? bpmHigh,
-    int? bpmLast,
-    String? timeSignature,
-    String? subdivision,
-    String? mode,
-    String? prevHash,
-    String? entryHash,
-  }) => AuditSession(
-    id: id ?? this.id,
-    startedAt: startedAt ?? this.startedAt,
-    endedAt: endedAt ?? this.endedAt,
-    seconds: seconds ?? this.seconds,
-    bpmLow: bpmLow ?? this.bpmLow,
-    bpmHigh: bpmHigh ?? this.bpmHigh,
-    bpmLast: bpmLast ?? this.bpmLast,
-    timeSignature: timeSignature ?? this.timeSignature,
-    subdivision: subdivision ?? this.subdivision,
-    mode: mode ?? this.mode,
-    prevHash: prevHash ?? this.prevHash,
-    entryHash: entryHash ?? this.entryHash,
-  );
-  AuditSession copyWithCompanion(AuditSessionsCompanion data) {
-    return AuditSession(
-      id: data.id.present ? data.id.value : this.id,
-      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
-      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
-      seconds: data.seconds.present ? data.seconds.value : this.seconds,
-      bpmLow: data.bpmLow.present ? data.bpmLow.value : this.bpmLow,
-      bpmHigh: data.bpmHigh.present ? data.bpmHigh.value : this.bpmHigh,
-      bpmLast: data.bpmLast.present ? data.bpmLast.value : this.bpmLast,
-      timeSignature: data.timeSignature.present
-          ? data.timeSignature.value
-          : this.timeSignature,
-      subdivision: data.subdivision.present
-          ? data.subdivision.value
-          : this.subdivision,
-      mode: data.mode.present ? data.mode.value : this.mode,
-      prevHash: data.prevHash.present ? data.prevHash.value : this.prevHash,
-      entryHash: data.entryHash.present ? data.entryHash.value : this.entryHash,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('AuditSession(')
-          ..write('id: $id, ')
-          ..write('startedAt: $startedAt, ')
-          ..write('endedAt: $endedAt, ')
-          ..write('seconds: $seconds, ')
-          ..write('bpmLow: $bpmLow, ')
-          ..write('bpmHigh: $bpmHigh, ')
-          ..write('bpmLast: $bpmLast, ')
-          ..write('timeSignature: $timeSignature, ')
-          ..write('subdivision: $subdivision, ')
-          ..write('mode: $mode, ')
-          ..write('prevHash: $prevHash, ')
-          ..write('entryHash: $entryHash')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    startedAt,
-    endedAt,
-    seconds,
-    bpmLow,
-    bpmHigh,
-    bpmLast,
-    timeSignature,
-    subdivision,
-    mode,
-    prevHash,
-    entryHash,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is AuditSession &&
-          other.id == this.id &&
-          other.startedAt == this.startedAt &&
-          other.endedAt == this.endedAt &&
-          other.seconds == this.seconds &&
-          other.bpmLow == this.bpmLow &&
-          other.bpmHigh == this.bpmHigh &&
-          other.bpmLast == this.bpmLast &&
-          other.timeSignature == this.timeSignature &&
-          other.subdivision == this.subdivision &&
-          other.mode == this.mode &&
-          other.prevHash == this.prevHash &&
-          other.entryHash == this.entryHash);
-}
-
-class AuditSessionsCompanion extends UpdateCompanion<AuditSession> {
-  final Value<int> id;
-  final Value<DateTime> startedAt;
-  final Value<DateTime> endedAt;
-  final Value<int> seconds;
-  final Value<int> bpmLow;
-  final Value<int> bpmHigh;
-  final Value<int> bpmLast;
-  final Value<String> timeSignature;
-  final Value<String> subdivision;
-  final Value<String> mode;
-  final Value<String> prevHash;
-  final Value<String> entryHash;
-  const AuditSessionsCompanion({
-    this.id = const Value.absent(),
-    this.startedAt = const Value.absent(),
-    this.endedAt = const Value.absent(),
-    this.seconds = const Value.absent(),
-    this.bpmLow = const Value.absent(),
-    this.bpmHigh = const Value.absent(),
-    this.bpmLast = const Value.absent(),
-    this.timeSignature = const Value.absent(),
-    this.subdivision = const Value.absent(),
-    this.mode = const Value.absent(),
-    this.prevHash = const Value.absent(),
-    this.entryHash = const Value.absent(),
-  });
-  AuditSessionsCompanion.insert({
-    this.id = const Value.absent(),
-    required DateTime startedAt,
-    required DateTime endedAt,
-    required int seconds,
-    required int bpmLow,
-    required int bpmHigh,
-    required int bpmLast,
-    required String timeSignature,
-    required String subdivision,
-    required String mode,
-    required String prevHash,
-    required String entryHash,
-  }) : startedAt = Value(startedAt),
-       endedAt = Value(endedAt),
-       seconds = Value(seconds),
-       bpmLow = Value(bpmLow),
-       bpmHigh = Value(bpmHigh),
-       bpmLast = Value(bpmLast),
-       timeSignature = Value(timeSignature),
-       subdivision = Value(subdivision),
-       mode = Value(mode),
-       prevHash = Value(prevHash),
-       entryHash = Value(entryHash);
-  static Insertable<AuditSession> custom({
-    Expression<int>? id,
-    Expression<DateTime>? startedAt,
-    Expression<DateTime>? endedAt,
-    Expression<int>? seconds,
-    Expression<int>? bpmLow,
-    Expression<int>? bpmHigh,
-    Expression<int>? bpmLast,
-    Expression<String>? timeSignature,
-    Expression<String>? subdivision,
-    Expression<String>? mode,
-    Expression<String>? prevHash,
-    Expression<String>? entryHash,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (startedAt != null) 'started_at': startedAt,
-      if (endedAt != null) 'ended_at': endedAt,
-      if (seconds != null) 'seconds': seconds,
-      if (bpmLow != null) 'bpm_low': bpmLow,
-      if (bpmHigh != null) 'bpm_high': bpmHigh,
-      if (bpmLast != null) 'bpm_last': bpmLast,
-      if (timeSignature != null) 'time_signature': timeSignature,
-      if (subdivision != null) 'subdivision': subdivision,
-      if (mode != null) 'mode': mode,
-      if (prevHash != null) 'prev_hash': prevHash,
-      if (entryHash != null) 'entry_hash': entryHash,
-    });
-  }
-
-  AuditSessionsCompanion copyWith({
-    Value<int>? id,
-    Value<DateTime>? startedAt,
-    Value<DateTime>? endedAt,
-    Value<int>? seconds,
-    Value<int>? bpmLow,
-    Value<int>? bpmHigh,
-    Value<int>? bpmLast,
-    Value<String>? timeSignature,
-    Value<String>? subdivision,
-    Value<String>? mode,
-    Value<String>? prevHash,
-    Value<String>? entryHash,
-  }) {
-    return AuditSessionsCompanion(
-      id: id ?? this.id,
-      startedAt: startedAt ?? this.startedAt,
-      endedAt: endedAt ?? this.endedAt,
-      seconds: seconds ?? this.seconds,
-      bpmLow: bpmLow ?? this.bpmLow,
-      bpmHigh: bpmHigh ?? this.bpmHigh,
-      bpmLast: bpmLast ?? this.bpmLast,
-      timeSignature: timeSignature ?? this.timeSignature,
-      subdivision: subdivision ?? this.subdivision,
-      mode: mode ?? this.mode,
-      prevHash: prevHash ?? this.prevHash,
-      entryHash: entryHash ?? this.entryHash,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (startedAt.present) {
-      map['started_at'] = Variable<DateTime>(startedAt.value);
-    }
-    if (endedAt.present) {
-      map['ended_at'] = Variable<DateTime>(endedAt.value);
-    }
-    if (seconds.present) {
-      map['seconds'] = Variable<int>(seconds.value);
-    }
-    if (bpmLow.present) {
-      map['bpm_low'] = Variable<int>(bpmLow.value);
-    }
-    if (bpmHigh.present) {
-      map['bpm_high'] = Variable<int>(bpmHigh.value);
-    }
-    if (bpmLast.present) {
-      map['bpm_last'] = Variable<int>(bpmLast.value);
-    }
-    if (timeSignature.present) {
-      map['time_signature'] = Variable<String>(timeSignature.value);
-    }
-    if (subdivision.present) {
-      map['subdivision'] = Variable<String>(subdivision.value);
-    }
-    if (mode.present) {
-      map['mode'] = Variable<String>(mode.value);
-    }
-    if (prevHash.present) {
-      map['prev_hash'] = Variable<String>(prevHash.value);
-    }
-    if (entryHash.present) {
-      map['entry_hash'] = Variable<String>(entryHash.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('AuditSessionsCompanion(')
-          ..write('id: $id, ')
-          ..write('startedAt: $startedAt, ')
-          ..write('endedAt: $endedAt, ')
-          ..write('seconds: $seconds, ')
-          ..write('bpmLow: $bpmLow, ')
-          ..write('bpmHigh: $bpmHigh, ')
-          ..write('bpmLast: $bpmLast, ')
-          ..write('timeSignature: $timeSignature, ')
-          ..write('subdivision: $subdivision, ')
-          ..write('mode: $mode, ')
-          ..write('prevHash: $prevHash, ')
-          ..write('entryHash: $entryHash')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $ScoreFoldersTable extends ScoreFolders
     with TableInfo<$ScoreFoldersTable, ScoreFolder> {
   @override
@@ -5116,6 +4467,17 @@ class $ScoreFoldersTable extends ScoreFolders
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _exerciseIdMeta = const VerificationMeta(
+    'exerciseId',
+  );
+  @override
+  late final GeneratedColumn<int> exerciseId = GeneratedColumn<int>(
+    'exercise_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -5128,7 +4490,13 @@ class $ScoreFoldersTable extends ScoreFolders
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, linkedPieceId, createdAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    linkedPieceId,
+    exerciseId,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5161,6 +4529,12 @@ class $ScoreFoldersTable extends ScoreFolders
         ),
       );
     }
+    if (data.containsKey('exercise_id')) {
+      context.handle(
+        _exerciseIdMeta,
+        exerciseId.isAcceptableOrUnknown(data['exercise_id']!, _exerciseIdMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -5190,6 +4564,10 @@ class $ScoreFoldersTable extends ScoreFolders
         DriftSqlType.int,
         data['${effectivePrefix}linked_piece_id'],
       ),
+      exerciseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}exercise_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -5207,11 +4585,13 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
   final int id;
   final String name;
   final int? linkedPieceId;
+  final int? exerciseId;
   final DateTime createdAt;
   const ScoreFolder({
     required this.id,
     required this.name,
     this.linkedPieceId,
+    this.exerciseId,
     required this.createdAt,
   });
   @override
@@ -5221,6 +4601,9 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || linkedPieceId != null) {
       map['linked_piece_id'] = Variable<int>(linkedPieceId);
+    }
+    if (!nullToAbsent || exerciseId != null) {
+      map['exercise_id'] = Variable<int>(exerciseId);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -5233,6 +4616,9 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
       linkedPieceId: linkedPieceId == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedPieceId),
+      exerciseId: exerciseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exerciseId),
       createdAt: Value(createdAt),
     );
   }
@@ -5246,6 +4632,7 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       linkedPieceId: serializer.fromJson<int?>(json['linkedPieceId']),
+      exerciseId: serializer.fromJson<int?>(json['exerciseId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -5256,6 +4643,7 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'linkedPieceId': serializer.toJson<int?>(linkedPieceId),
+      'exerciseId': serializer.toJson<int?>(exerciseId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -5264,6 +4652,7 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
     int? id,
     String? name,
     Value<int?> linkedPieceId = const Value.absent(),
+    Value<int?> exerciseId = const Value.absent(),
     DateTime? createdAt,
   }) => ScoreFolder(
     id: id ?? this.id,
@@ -5271,6 +4660,7 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
     linkedPieceId: linkedPieceId.present
         ? linkedPieceId.value
         : this.linkedPieceId,
+    exerciseId: exerciseId.present ? exerciseId.value : this.exerciseId,
     createdAt: createdAt ?? this.createdAt,
   );
   ScoreFolder copyWithCompanion(ScoreFoldersCompanion data) {
@@ -5280,6 +4670,9 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
       linkedPieceId: data.linkedPieceId.present
           ? data.linkedPieceId.value
           : this.linkedPieceId,
+      exerciseId: data.exerciseId.present
+          ? data.exerciseId.value
+          : this.exerciseId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -5290,13 +4683,15 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('linkedPieceId: $linkedPieceId, ')
+          ..write('exerciseId: $exerciseId, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, linkedPieceId, createdAt);
+  int get hashCode =>
+      Object.hash(id, name, linkedPieceId, exerciseId, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5304,6 +4699,7 @@ class ScoreFolder extends DataClass implements Insertable<ScoreFolder> {
           other.id == this.id &&
           other.name == this.name &&
           other.linkedPieceId == this.linkedPieceId &&
+          other.exerciseId == this.exerciseId &&
           other.createdAt == this.createdAt);
 }
 
@@ -5311,17 +4707,20 @@ class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
   final Value<int> id;
   final Value<String> name;
   final Value<int?> linkedPieceId;
+  final Value<int?> exerciseId;
   final Value<DateTime> createdAt;
   const ScoreFoldersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.linkedPieceId = const Value.absent(),
+    this.exerciseId = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   ScoreFoldersCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     this.linkedPieceId = const Value.absent(),
+    this.exerciseId = const Value.absent(),
     required DateTime createdAt,
   }) : name = Value(name),
        createdAt = Value(createdAt);
@@ -5329,12 +4728,14 @@ class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<int>? linkedPieceId,
+    Expression<int>? exerciseId,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (linkedPieceId != null) 'linked_piece_id': linkedPieceId,
+      if (exerciseId != null) 'exercise_id': exerciseId,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -5343,12 +4744,14 @@ class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
     Value<int>? id,
     Value<String>? name,
     Value<int?>? linkedPieceId,
+    Value<int?>? exerciseId,
     Value<DateTime>? createdAt,
   }) {
     return ScoreFoldersCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       linkedPieceId: linkedPieceId ?? this.linkedPieceId,
+      exerciseId: exerciseId ?? this.exerciseId,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -5365,6 +4768,9 @@ class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
     if (linkedPieceId.present) {
       map['linked_piece_id'] = Variable<int>(linkedPieceId.value);
     }
+    if (exerciseId.present) {
+      map['exercise_id'] = Variable<int>(exerciseId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -5377,6 +4783,7 @@ class ScoreFoldersCompanion extends UpdateCompanion<ScoreFolder> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('linkedPieceId: $linkedPieceId, ')
+          ..write('exerciseId: $exerciseId, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -6305,7 +5712,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PieceSectionsTable pieceSections = $PieceSectionsTable(this);
-  late final $AuditSessionsTable auditSessions = $AuditSessionsTable(this);
   late final $ScoreFoldersTable scoreFolders = $ScoreFoldersTable(this);
   late final $ScorePagesTable scorePages = $ScorePagesTable(this);
   late final $ScorePageTurnsTable scorePageTurns = $ScorePageTurnsTable(this);
@@ -6328,7 +5734,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     eventReminders,
     metronomePieces,
     pieceSections,
-    auditSessions,
     scoreFolders,
     scorePages,
     scorePageTurns,
@@ -8226,6 +7631,7 @@ typedef $$MetronomePiecesTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime modifiedAt,
       Value<bool> isArchived,
+      Value<int?> exerciseId,
     });
 typedef $$MetronomePiecesTableUpdateCompanionBuilder =
     MetronomePiecesCompanion Function({
@@ -8234,6 +7640,7 @@ typedef $$MetronomePiecesTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> modifiedAt,
       Value<bool> isArchived,
+      Value<int?> exerciseId,
     });
 
 class $$MetronomePiecesTableFilterComposer
@@ -8267,6 +7674,11 @@ class $$MetronomePiecesTableFilterComposer
 
   ColumnFilters<bool> get isArchived => $composableBuilder(
     column: $table.isArchived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8304,6 +7716,11 @@ class $$MetronomePiecesTableOrderingComposer
     column: $table.isArchived,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MetronomePiecesTableAnnotationComposer
@@ -8331,6 +7748,11 @@ class $$MetronomePiecesTableAnnotationComposer
 
   GeneratedColumn<bool> get isArchived => $composableBuilder(
     column: $table.isArchived,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
     builder: (column) => column,
   );
 }
@@ -8377,12 +7799,14 @@ class $$MetronomePiecesTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> modifiedAt = const Value.absent(),
                 Value<bool> isArchived = const Value.absent(),
+                Value<int?> exerciseId = const Value.absent(),
               }) => MetronomePiecesCompanion(
                 id: id,
                 title: title,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,
                 isArchived: isArchived,
+                exerciseId: exerciseId,
               ),
           createCompanionCallback:
               ({
@@ -8391,12 +7815,14 @@ class $$MetronomePiecesTableTableManager
                 required DateTime createdAt,
                 required DateTime modifiedAt,
                 Value<bool> isArchived = const Value.absent(),
+                Value<int?> exerciseId = const Value.absent(),
               }) => MetronomePiecesCompanion.insert(
                 id: id,
                 title: title,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,
                 isArchived: isArchived,
+                exerciseId: exerciseId,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -8703,342 +8129,12 @@ typedef $$PieceSectionsTableProcessedTableManager =
       PieceSection,
       PrefetchHooks Function()
     >;
-typedef $$AuditSessionsTableCreateCompanionBuilder =
-    AuditSessionsCompanion Function({
-      Value<int> id,
-      required DateTime startedAt,
-      required DateTime endedAt,
-      required int seconds,
-      required int bpmLow,
-      required int bpmHigh,
-      required int bpmLast,
-      required String timeSignature,
-      required String subdivision,
-      required String mode,
-      required String prevHash,
-      required String entryHash,
-    });
-typedef $$AuditSessionsTableUpdateCompanionBuilder =
-    AuditSessionsCompanion Function({
-      Value<int> id,
-      Value<DateTime> startedAt,
-      Value<DateTime> endedAt,
-      Value<int> seconds,
-      Value<int> bpmLow,
-      Value<int> bpmHigh,
-      Value<int> bpmLast,
-      Value<String> timeSignature,
-      Value<String> subdivision,
-      Value<String> mode,
-      Value<String> prevHash,
-      Value<String> entryHash,
-    });
-
-class $$AuditSessionsTableFilterComposer
-    extends Composer<_$AppDatabase, $AuditSessionsTable> {
-  $$AuditSessionsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get startedAt => $composableBuilder(
-    column: $table.startedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get endedAt => $composableBuilder(
-    column: $table.endedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get seconds => $composableBuilder(
-    column: $table.seconds,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get bpmLow => $composableBuilder(
-    column: $table.bpmLow,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get bpmHigh => $composableBuilder(
-    column: $table.bpmHigh,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get bpmLast => $composableBuilder(
-    column: $table.bpmLast,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get timeSignature => $composableBuilder(
-    column: $table.timeSignature,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get subdivision => $composableBuilder(
-    column: $table.subdivision,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get mode => $composableBuilder(
-    column: $table.mode,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get prevHash => $composableBuilder(
-    column: $table.prevHash,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get entryHash => $composableBuilder(
-    column: $table.entryHash,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$AuditSessionsTableOrderingComposer
-    extends Composer<_$AppDatabase, $AuditSessionsTable> {
-  $$AuditSessionsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
-    column: $table.startedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get endedAt => $composableBuilder(
-    column: $table.endedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get seconds => $composableBuilder(
-    column: $table.seconds,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get bpmLow => $composableBuilder(
-    column: $table.bpmLow,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get bpmHigh => $composableBuilder(
-    column: $table.bpmHigh,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get bpmLast => $composableBuilder(
-    column: $table.bpmLast,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get timeSignature => $composableBuilder(
-    column: $table.timeSignature,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get subdivision => $composableBuilder(
-    column: $table.subdivision,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get mode => $composableBuilder(
-    column: $table.mode,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get prevHash => $composableBuilder(
-    column: $table.prevHash,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get entryHash => $composableBuilder(
-    column: $table.entryHash,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$AuditSessionsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $AuditSessionsTable> {
-  $$AuditSessionsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get startedAt =>
-      $composableBuilder(column: $table.startedAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get endedAt =>
-      $composableBuilder(column: $table.endedAt, builder: (column) => column);
-
-  GeneratedColumn<int> get seconds =>
-      $composableBuilder(column: $table.seconds, builder: (column) => column);
-
-  GeneratedColumn<int> get bpmLow =>
-      $composableBuilder(column: $table.bpmLow, builder: (column) => column);
-
-  GeneratedColumn<int> get bpmHigh =>
-      $composableBuilder(column: $table.bpmHigh, builder: (column) => column);
-
-  GeneratedColumn<int> get bpmLast =>
-      $composableBuilder(column: $table.bpmLast, builder: (column) => column);
-
-  GeneratedColumn<String> get timeSignature => $composableBuilder(
-    column: $table.timeSignature,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get subdivision => $composableBuilder(
-    column: $table.subdivision,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get mode =>
-      $composableBuilder(column: $table.mode, builder: (column) => column);
-
-  GeneratedColumn<String> get prevHash =>
-      $composableBuilder(column: $table.prevHash, builder: (column) => column);
-
-  GeneratedColumn<String> get entryHash =>
-      $composableBuilder(column: $table.entryHash, builder: (column) => column);
-}
-
-class $$AuditSessionsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $AuditSessionsTable,
-          AuditSession,
-          $$AuditSessionsTableFilterComposer,
-          $$AuditSessionsTableOrderingComposer,
-          $$AuditSessionsTableAnnotationComposer,
-          $$AuditSessionsTableCreateCompanionBuilder,
-          $$AuditSessionsTableUpdateCompanionBuilder,
-          (
-            AuditSession,
-            BaseReferences<_$AppDatabase, $AuditSessionsTable, AuditSession>,
-          ),
-          AuditSession,
-          PrefetchHooks Function()
-        > {
-  $$AuditSessionsTableTableManager(_$AppDatabase db, $AuditSessionsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$AuditSessionsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$AuditSessionsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$AuditSessionsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<DateTime> startedAt = const Value.absent(),
-                Value<DateTime> endedAt = const Value.absent(),
-                Value<int> seconds = const Value.absent(),
-                Value<int> bpmLow = const Value.absent(),
-                Value<int> bpmHigh = const Value.absent(),
-                Value<int> bpmLast = const Value.absent(),
-                Value<String> timeSignature = const Value.absent(),
-                Value<String> subdivision = const Value.absent(),
-                Value<String> mode = const Value.absent(),
-                Value<String> prevHash = const Value.absent(),
-                Value<String> entryHash = const Value.absent(),
-              }) => AuditSessionsCompanion(
-                id: id,
-                startedAt: startedAt,
-                endedAt: endedAt,
-                seconds: seconds,
-                bpmLow: bpmLow,
-                bpmHigh: bpmHigh,
-                bpmLast: bpmLast,
-                timeSignature: timeSignature,
-                subdivision: subdivision,
-                mode: mode,
-                prevHash: prevHash,
-                entryHash: entryHash,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                required DateTime startedAt,
-                required DateTime endedAt,
-                required int seconds,
-                required int bpmLow,
-                required int bpmHigh,
-                required int bpmLast,
-                required String timeSignature,
-                required String subdivision,
-                required String mode,
-                required String prevHash,
-                required String entryHash,
-              }) => AuditSessionsCompanion.insert(
-                id: id,
-                startedAt: startedAt,
-                endedAt: endedAt,
-                seconds: seconds,
-                bpmLow: bpmLow,
-                bpmHigh: bpmHigh,
-                bpmLast: bpmLast,
-                timeSignature: timeSignature,
-                subdivision: subdivision,
-                mode: mode,
-                prevHash: prevHash,
-                entryHash: entryHash,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$AuditSessionsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $AuditSessionsTable,
-      AuditSession,
-      $$AuditSessionsTableFilterComposer,
-      $$AuditSessionsTableOrderingComposer,
-      $$AuditSessionsTableAnnotationComposer,
-      $$AuditSessionsTableCreateCompanionBuilder,
-      $$AuditSessionsTableUpdateCompanionBuilder,
-      (
-        AuditSession,
-        BaseReferences<_$AppDatabase, $AuditSessionsTable, AuditSession>,
-      ),
-      AuditSession,
-      PrefetchHooks Function()
-    >;
 typedef $$ScoreFoldersTableCreateCompanionBuilder =
     ScoreFoldersCompanion Function({
       Value<int> id,
       required String name,
       Value<int?> linkedPieceId,
+      Value<int?> exerciseId,
       required DateTime createdAt,
     });
 typedef $$ScoreFoldersTableUpdateCompanionBuilder =
@@ -9046,6 +8142,7 @@ typedef $$ScoreFoldersTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> name,
       Value<int?> linkedPieceId,
+      Value<int?> exerciseId,
       Value<DateTime> createdAt,
     });
 
@@ -9070,6 +8167,11 @@ class $$ScoreFoldersTableFilterComposer
 
   ColumnFilters<int> get linkedPieceId => $composableBuilder(
     column: $table.linkedPieceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9103,6 +8205,11 @@ class $$ScoreFoldersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -9126,6 +8233,11 @@ class $$ScoreFoldersTableAnnotationComposer
 
   GeneratedColumn<int> get linkedPieceId => $composableBuilder(
     column: $table.linkedPieceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get exerciseId => $composableBuilder(
+    column: $table.exerciseId,
     builder: (column) => column,
   );
 
@@ -9167,11 +8279,13 @@ class $$ScoreFoldersTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int?> linkedPieceId = const Value.absent(),
+                Value<int?> exerciseId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => ScoreFoldersCompanion(
                 id: id,
                 name: name,
                 linkedPieceId: linkedPieceId,
+                exerciseId: exerciseId,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -9179,11 +8293,13 @@ class $$ScoreFoldersTableTableManager
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<int?> linkedPieceId = const Value.absent(),
+                Value<int?> exerciseId = const Value.absent(),
                 required DateTime createdAt,
               }) => ScoreFoldersCompanion.insert(
                 id: id,
                 name: name,
                 linkedPieceId: linkedPieceId,
+                exerciseId: exerciseId,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -9772,8 +8888,6 @@ class $AppDatabaseManager {
       $$MetronomePiecesTableTableManager(_db, _db.metronomePieces);
   $$PieceSectionsTableTableManager get pieceSections =>
       $$PieceSectionsTableTableManager(_db, _db.pieceSections);
-  $$AuditSessionsTableTableManager get auditSessions =>
-      $$AuditSessionsTableTableManager(_db, _db.auditSessions);
   $$ScoreFoldersTableTableManager get scoreFolders =>
       $$ScoreFoldersTableTableManager(_db, _db.scoreFolders);
   $$ScorePagesTableTableManager get scorePages =>

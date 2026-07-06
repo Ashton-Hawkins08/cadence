@@ -22,9 +22,24 @@ class ScoreRepository {
         .watch();
   }
 
-  Future<int> createFolder(String name) {
+  Future<ScoreFolder?> getFolderById(int id) {
+    return (_db.select(_db.scoreFolders)..where((f) => f.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  /// The score attached to an exercise (one per exercise by convention).
+  Future<ScoreFolder?> getFolderForExercise(int exerciseId) {
+    return (_db.select(_db.scoreFolders)
+          ..where((f) => f.exerciseId.equals(exerciseId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<int> createFolder(String name, {int? exerciseId, int? linkedPieceId}) {
     return _db.into(_db.scoreFolders).insert(ScoreFoldersCompanion.insert(
           name: name,
+          exerciseId: Value(exerciseId),
+          linkedPieceId: Value(linkedPieceId),
           createdAt: DateTime.now(),
         ));
   }

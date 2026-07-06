@@ -306,6 +306,21 @@ void MetronomeChannel::HandleMethodCall(
           }
         }
       }
+
+      // Warm the audio path. waveOutOpen only opens the handle — Windows
+      // creates the actual render route on the FIRST waveOutWrite, which
+      // costs tens of milliseconds on some audio stacks. If that first
+      // write is beat 0 of a session, beat 0 sounds late and the gap to
+      // beat 1 sounds too short. Pushing 40 ms of silence through the
+      // device here (inaudible, at init time) absorbs that one-time cost
+      // so every session's first beat plays with the same latency as the
+      // rest.
+      {
+        WavSound silence;
+        silence.pcm.assign(22050 * 2 * 40 / 1000, 0); // 40 ms @ 22.05k s16
+        s_wavSounds["_warmup"] = std::move(silence);
+      }
+      PlayPcm("_warmup");
     }
     result->Success();
 

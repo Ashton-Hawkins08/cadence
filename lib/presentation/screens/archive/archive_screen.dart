@@ -6,6 +6,7 @@ import 'package:cadence/domain/validators/name_validator.dart';
 import 'package:cadence/presentation/providers/categories_provider.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
 import 'package:cadence/presentation/providers/exercises_provider.dart';
+import 'package:cadence/presentation/providers/piece_provider.dart';
 import 'package:intl/intl.dart';
 
 // Wraps the chosen categoryId so we can distinguish "Uncategorized" (null)
@@ -87,9 +88,10 @@ class ArchiveScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final archivedExercisesAsync = ref.watch(archivedExercisesProvider);
     final bundlesAsync = ref.watch(archivedCategoryBundlesProvider);
+    final archivedPiecesAsync = ref.watch(archivedPiecesProvider);
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Archive'),
@@ -98,6 +100,7 @@ class ArchiveScreen extends ConsumerWidget {
             tabs: const [
               Tab(text: 'Exercises'),
               Tab(text: 'Category Bundles'),
+              Tab(text: 'Pieces'),
             ],
             labelColor: Theme.of(context).colorScheme.primary,
             indicatorColor: Theme.of(context).colorScheme.primary,
@@ -128,9 +131,86 @@ class ArchiveScreen extends ConsumerWidget {
                 );
               },
             ),
+
+            // ── Archived Pieces ───────────────────────────────────────────
+            archivedPiecesAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (pieces) => _PieceArchiveTab(pieces: pieces),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Archived pieces tab
+// ──────────────────────────────────────────────────────────────────────────────
+class _PieceArchiveTab extends ConsumerWidget {
+  final List<MetronomePiece> pieces;
+  const _PieceArchiveTab({required this.pieces});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    if (pieces.isEmpty) {
+      return Center(
+        child: Text('No archived pieces.',
+            style: theme.textTheme.bodyMedium),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: pieces.length,
+      itemBuilder: (_, i) {
+        final p = pieces[i];
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.timeline_outlined),
+            title: Text(p.title),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Restore',
+                  icon: const Icon(Icons.unarchive_outlined),
+                  onPressed: () =>
+                      ref.read(pieceRepositoryProvider).restore(p.id),
+                ),
+                IconButton(
+                  tooltip: 'Delete permanently',
+                  icon: Icon(Icons.delete_outline,
+                      color: theme.colorScheme.error),
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete piece?'),
+                        content: Text(
+                            '"${p.title}" and its sections will be permanently deleted.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete')),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      await ref.read(pieceRepositoryProvider).delete(p.id);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

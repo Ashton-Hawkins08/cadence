@@ -36,8 +36,9 @@ dependencies:
 
   # Metronome audio
   audioplayers: ^6.0.0
-  crypto: ^3.0.7
+  # Mic capture (tuner + tempo ear)
   record: ^7.1.1
+  # Sheet music page import
   image_picker: ^1.2.3
 
 dev_dependencies:

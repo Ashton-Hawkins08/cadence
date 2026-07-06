@@ -26,15 +26,25 @@ class PieceRepository {
         .getSingleOrNull();
   }
 
-  Future<int> create(String title) {
+  Future<int> create(String title, {int? exerciseId}) {
     final now = DateTime.now();
     return _db.into(_db.metronomePieces).insert(
           MetronomePiecesCompanion.insert(
             title: title,
             createdAt: now,
             modifiedAt: now,
+            exerciseId: Value(exerciseId),
           ),
         );
+  }
+
+  /// The piece map attached to an exercise (one per exercise by convention).
+  Future<MetronomePiece?> getPieceForExercise(int exerciseId) {
+    return (_db.select(_db.metronomePieces)
+          ..where((p) => p.exerciseId.equals(exerciseId))
+          ..where((p) => p.isArchived.equals(false))
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   Future<void> rename(int id, String title) {
