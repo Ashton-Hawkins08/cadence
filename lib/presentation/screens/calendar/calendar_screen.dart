@@ -25,8 +25,11 @@ class CalendarScreen extends ConsumerWidget {
             tooltip: 'Go to today',
             onPressed: () {
               final now = DateTime.now();
-              ref.read(calendarMonthProvider.notifier).state =
-                  DateTime(now.year, now.month, 1);
+              ref.read(calendarMonthProvider.notifier).state = DateTime(
+                now.year,
+                now.month,
+                1,
+              );
             },
           ),
         ],
@@ -59,9 +62,7 @@ class CalendarScreen extends ConsumerWidget {
   void _openCreate(BuildContext context, DateTime? date) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => CreateEventScreen(initialDate: date),
-      ),
+      MaterialPageRoute(builder: (_) => CreateEventScreen(initialDate: date)),
     );
   }
 }
@@ -92,8 +93,9 @@ class _MonthHeader extends ConsumerWidget {
                 children: [
                   Text(
                     DateFormat('MMMM').format(currentMonth),
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   Row(
@@ -106,8 +108,11 @@ class _MonthHeader extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Icon(Icons.arrow_drop_down,
-                          size: 16, color: theme.colorScheme.primary),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
                     ],
                   ),
                 ],
@@ -125,8 +130,11 @@ class _MonthHeader extends ConsumerWidget {
 
   void _changeMonth(WidgetRef ref, int delta) {
     final m = ref.read(calendarMonthProvider);
-    ref.read(calendarMonthProvider.notifier).state =
-        DateTime(m.year, m.month + delta, 1);
+    ref.read(calendarMonthProvider.notifier).state = DateTime(
+      m.year,
+      m.month + delta,
+      1,
+    );
   }
 
   Future<void> _pickYear(BuildContext context, WidgetRef ref) async {
@@ -149,8 +157,11 @@ class _MonthHeader extends ConsumerWidget {
     );
 
     if (picked != null) {
-      ref.read(calendarMonthProvider.notifier).state =
-          DateTime(picked!, current.month, 1);
+      ref.read(calendarMonthProvider.notifier).state = DateTime(
+        picked!,
+        current.month,
+        1,
+      );
     }
   }
 }
@@ -170,19 +181,21 @@ class _DayLabelsRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: _labels
-            .map((l) => Expanded(
-                  child: Center(
-                    child: Text(
-                      l,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.lightTextSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+            .map(
+              (l) => Expanded(
+                child: Center(
+                  child: Text(
+                    l,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ))
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -195,17 +208,13 @@ class _CalendarGrid extends ConsumerWidget {
   final DateTime currentMonth;
   final List<CalendarEvent> allEvents;
 
-  const _CalendarGrid({
-    required this.currentMonth,
-    required this.allEvents,
-  });
+  const _CalendarGrid({required this.currentMonth, required this.allEvents});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final days = _buildDaysGrid(currentMonth.year, currentMonth.month);
     final today = DateTime.now();
-    final todayNorm =
-        DateTime(today.year, today.month, today.day);
+    final todayNorm = DateTime(today.year, today.month, today.day);
 
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -247,34 +256,31 @@ class _CalendarGrid extends ConsumerWidget {
 
   List<CalendarEvent> _eventsForDay(DateTime date) {
     final dayUtc = DateTime.utc(date.year, date.month, date.day);
-    final dayEnd =
-        DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
+    final dayEnd = DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
 
     return allEvents.where((e) {
       return e.startDate.isBefore(dayEnd) &&
-          e.endDate.isAfter(
-              dayUtc.subtract(const Duration(seconds: 1)));
+          e.endDate.isAfter(dayUtc.subtract(const Duration(seconds: 1)));
     }).toList();
   }
 
-  void _handleDayTap(BuildContext context, WidgetRef ref, DateTime date,
-      List<CalendarEvent> events) {
+  void _handleDayTap(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime date,
+    List<CalendarEvent> events,
+  ) {
     if (events.isEmpty) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => CreateEventScreen(initialDate: date),
-        ),
+        MaterialPageRoute(builder: (_) => CreateEventScreen(initialDate: date)),
       );
     } else {
       showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        builder: (_) => _DayEventsSheet(
-          date: date,
-          events: events,
-        ),
+        builder: (_) => _DayEventsSheet(date: date, events: events),
       );
     }
   }
@@ -314,13 +320,12 @@ class _DayCell extends StatelessWidget {
             Text(
               '$day',
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight:
-                    isToday ? FontWeight.w700 : FontWeight.normal,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
                 color: isToday
                     ? Colors.white
                     : isDark
-                        ? AppColors.darkText
-                        : AppColors.lightText,
+                    ? AppColors.darkText
+                    : AppColors.lightText,
               ),
             ),
             const SizedBox(height: 3),
@@ -349,16 +354,14 @@ class _EventDots extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: visible.map((e) {
-          final color = EventColors.fromValue(e.colorValue) ??
+          final color =
+              EventColors.fromValue(e.colorValue) ??
               (isToday ? Colors.white70 : theme.colorScheme.primary);
           return Container(
             width: 5,
             height: 5,
             margin: const EdgeInsets.symmetric(horizontal: 1),
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           );
         }).toList(),
       ),
@@ -379,73 +382,77 @@ class _DayEventsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // Material (not a decorated Container) so the ListTiles inside have an
+    // ink surface to splash on — a plain DecoratedBox hides tap ripples and
+    // trips a framework assertion in debug builds.
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      decoration: BoxDecoration(
+      child: Material(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  DateFormat('MMMM d, yyyy').format(date),
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CreateEventScreen(initialDate: date),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add event'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.5,
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              itemCount: events.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _EventListTile(
-                event: events[i],
-                onTap: () {
-                  Navigator.pop(context);
-                  _openDetail(context, events[i]);
-                },
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('MMMM d, yyyy').format(date),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreateEventScreen(initialDate: date),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add event'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                itemCount: events.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _EventListTile(
+                  event: events[i],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openDetail(context, events[i]);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -453,9 +460,7 @@ class _DayEventsSheet extends StatelessWidget {
   void _openDetail(BuildContext context, CalendarEvent event) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => _EventDetailScreen(event: event),
-      ),
+      MaterialPageRoute(builder: (_) => _EventDetailScreen(event: event)),
     );
   }
 }
@@ -475,9 +480,18 @@ class _EventListTile extends StatelessWidget {
     // Dates are stored as UTC midnight; extract the UTC year/month/day directly
     // rather than calling toLocal(), which shifts midnight back one day in
     // negative-offset timezones (e.g. Jun 21 00:00 UTC → Jun 20 in UTC-5).
-    final start = DateTime(event.startDate.year, event.startDate.month, event.startDate.day);
-    final end   = DateTime(event.endDate.year,   event.endDate.month,   event.endDate.day);
-    final isSingleDay = start.year == end.year &&
+    final start = DateTime(
+      event.startDate.year,
+      event.startDate.month,
+      event.startDate.day,
+    );
+    final end = DateTime(
+      event.endDate.year,
+      event.endDate.month,
+      event.endDate.day,
+    );
+    final isSingleDay =
+        start.year == end.year &&
         start.month == end.month &&
         start.day == end.day;
 
@@ -492,9 +506,12 @@ class _EventListTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        title: Text(event.title,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+        title: Text(
+          event.title,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         subtitle: isSingleDay
             ? null
             : Text(
@@ -515,12 +532,10 @@ class _EventDetailScreen extends ConsumerStatefulWidget {
   const _EventDetailScreen({required this.event});
 
   @override
-  ConsumerState<_EventDetailScreen> createState() =>
-      _EventDetailScreenState();
+  ConsumerState<_EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState
-    extends ConsumerState<_EventDetailScreen> {
+class _EventDetailScreenState extends ConsumerState<_EventDetailScreen> {
   List<EventReminder> _reminders = [];
 
   @override
@@ -545,16 +560,17 @@ class _EventDetailScreenState
       transitionDuration: Duration.zero,
       pageBuilder: (ctx, _, __) => AlertDialog(
         title: const Text('Delete Event?'),
-        content: Text(
-            'Delete "${widget.event.title}"? This cannot be undone.'),
+        content: Text('Delete "${widget.event.title}"? This cannot be undone.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white),
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -563,9 +579,7 @@ class _EventDetailScreenState
     );
 
     if (confirmed != true || !mounted) return;
-    await ref
-        .read(calendarRepositoryProvider)
-        .deleteEvent(widget.event.id);
+    await ref.read(calendarRepositoryProvider).deleteEvent(widget.event.id);
     if (mounted) Navigator.pop(context);
   }
 
@@ -578,9 +592,14 @@ class _EventDetailScreenState
         EventColors.fromValue(ev.colorValue) ?? theme.colorScheme.primary;
 
     // Same UTC-midnight extraction as _EventListTile — avoid toLocal() rollback.
-    final start = DateTime(ev.startDate.year, ev.startDate.month, ev.startDate.day);
-    final end   = DateTime(ev.endDate.year,   ev.endDate.month,   ev.endDate.day);
-    final isSingleDay = start.year == end.year &&
+    final start = DateTime(
+      ev.startDate.year,
+      ev.startDate.month,
+      ev.startDate.day,
+    );
+    final end = DateTime(ev.endDate.year, ev.endDate.month, ev.endDate.day);
+    final isSingleDay =
+        start.year == end.year &&
         start.month == end.month &&
         start.day == end.day;
 
@@ -633,25 +652,20 @@ class _EventDetailScreenState
               Expanded(
                 child: Text(
                   ev.title,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          _DetailRow(
-            icon: Icons.calendar_today_outlined,
-            text: dateLabel,
-          ),
+          _DetailRow(icon: Icons.calendar_today_outlined, text: dateLabel),
 
           if (ev.notes.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _DetailRow(
-              icon: Icons.notes_outlined,
-              text: ev.notes,
-            ),
+            _DetailRow(icon: Icons.notes_outlined, text: ev.notes),
           ],
 
           if (_reminders.isNotEmpty) ...[
@@ -664,21 +678,24 @@ class _EventDetailScreenState
               ),
             ),
             const SizedBox(height: 8),
-            ..._reminders.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.notifications_outlined,
-                          size: 16,
-                          color: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.lightTextSecondary),
-                      const SizedBox(width: 8),
-                      Text(_reminderLabel(r),
-                          style: theme.textTheme.bodyMedium),
-                    ],
-                  ),
-                )),
+            ..._reminders.map(
+              (r) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_outlined,
+                      size: 16,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(_reminderLabel(r), style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -713,11 +730,13 @@ class _DetailRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon,
-            size: 18,
-            color: isDark
-                ? AppColors.darkTextSecondary
-                : AppColors.lightTextSecondary),
+        Icon(
+          icon,
+          size: 18,
+          color: isDark
+              ? AppColors.darkTextSecondary
+              : AppColors.lightTextSecondary,
+        ),
         const SizedBox(width: 10),
         Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
       ],
@@ -731,8 +750,7 @@ class _YearPickerDialog extends StatefulWidget {
   final int selectedYear;
   final void Function(int) onPick;
 
-  const _YearPickerDialog(
-      {required this.selectedYear, required this.onPick});
+  const _YearPickerDialog({required this.selectedYear, required this.onPick});
 
   @override
   State<_YearPickerDialog> createState() => _YearPickerDialogState();

@@ -31,7 +31,15 @@ class _TunerScreenState extends ConsumerState<TunerScreen>
   @override
   bool get wantKeepAlive => true;
 
-  MicAnalysisService get _service => ref.read(micAnalysisServiceProvider);
+  // Captured once — post-await callbacks must never touch `ref` (throws
+  // "Cannot use ref after the widget was disposed" if the tab is gone).
+  late final MicAnalysisService _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = ref.read(micAnalysisServiceProvider);
+  }
 
   Future<void> _toggleMic() async {
     if (_running) {

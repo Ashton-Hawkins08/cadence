@@ -47,28 +47,38 @@ class ScoresPiecesScreen extends ConsumerWidget {
     // Standalone/orphaned items: created before scores & pieces became
     // exercise-owned, OR attached to an exercise that was since archived or
     // deleted. Keeping them visible here means nothing silently disappears.
-    final liveExerciseIds =
-        (exercisesAsync.valueOrNull ?? []).map((e) => e.id).toSet();
+    final liveExerciseIds = (exercisesAsync.valueOrNull ?? [])
+        .map((e) => e.id)
+        .toSet();
     final unlinkedFolders = folders
-        .where((f) =>
-            f.exerciseId == null || !liveExerciseIds.contains(f.exerciseId))
+        .where(
+          (f) =>
+              f.exerciseId == null || !liveExerciseIds.contains(f.exerciseId),
+        )
         .toList();
     final unlinkedPieces = pieces
-        .where((p) =>
-            p.exerciseId == null || !liveExerciseIds.contains(p.exerciseId))
+        .where(
+          (p) =>
+              p.exerciseId == null || !liveExerciseIds.contains(p.exerciseId),
+        )
         .toList();
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text('Scores & Pieces',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700)),
+        title: Text(
+          'Scores & Pieces',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         centerTitle: true,
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         elevation: 0,
       ),
       body: exercisesAsync.when(
@@ -95,8 +105,9 @@ class ScoresPiecesScreen extends ConsumerWidget {
             );
           }
 
-          final uncategorized =
-              exercises.where((e) => e.categoryId == null).toList();
+          final uncategorized = exercises
+              .where((e) => e.categoryId == null)
+              .toList();
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -154,29 +165,40 @@ class _CategoryGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (exercises.isEmpty) return const SizedBox.shrink();
+    // Material (not a decorated Container): the tiles inside need an ink
+    // surface, and a DecoratedBox over them trips a debug assertion.
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+      child: Material(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          leading: Icon(Icons.folder_outlined,
-              color: AppColors.indigoNavySoft, size: 24),
-          title: Text(title,
-              style: theme.textTheme.bodyLarge
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          childrenPadding: const EdgeInsets.only(bottom: 6),
-          children: exercises
-              .map((e) => _ExerciseTile(
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: Icon(
+              Icons.folder_outlined,
+              color: AppColors.indigoNavySoft,
+              size: 24,
+            ),
+            title: Text(
+              title,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            childrenPadding: const EdgeInsets.only(bottom: 6),
+            children: exercises
+                .map(
+                  (e) => _ExerciseTile(
                     exercise: e,
                     folder: folderByExercise[e.id],
                     piece: pieceByExercise[e.id],
                     isDark: isDark,
-                  ))
-              .toList(),
+                  ),
+                )
+                .toList(),
+          ),
         ),
       ),
     );
@@ -212,31 +234,42 @@ class _ExerciseTile extends ConsumerWidget {
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.only(left: 28, right: 16),
-      title: Text(exercise.name,
-          style:
-              theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+      title: Text(
+        exercise.name,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       subtitle: Text(
         _badge,
         style: theme.textTheme.labelSmall?.copyWith(
           color: hasAny
               ? AppColors.indigoNavySoft
               : (isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.lightTextSecondary),
+                    ? AppColors.darkTextSecondary
+                    : AppColors.lightTextSecondary),
           fontWeight: hasAny ? FontWeight.w700 : FontWeight.normal,
         ),
       ),
-      trailing: Icon(Icons.chevron_right,
-          size: 18,
-          color: isDark
-              ? AppColors.darkTextSecondary
-              : AppColors.lightTextSecondary),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 18,
+        color: isDark
+            ? AppColors.darkTextSecondary
+            : AppColors.lightTextSecondary,
+      ),
       onTap: () => _openActions(context, ref),
     );
   }
 
   // The exercise's hub: open what exists, offer to add what doesn't.
   Future<void> _openActions(BuildContext context, WidgetRef ref) async {
+    // Capture repositories NOW: the onTap closures below run after awaits
+    // and Navigator.pops, by which point this tile may have been rebuilt —
+    // touching `ref` then throws "Cannot use ref after the widget was
+    // disposed". Plain repo objects stay valid regardless.
+    final scoreRepo = ref.read(scoreRepositoryProvider);
+    final pieceRepo = ref.read(pieceRepositoryProvider);
     await showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -248,11 +281,12 @@ class _ExerciseTile extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(exercise.name,
-                  style: Theme.of(ctx)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800)),
+              child: Text(
+                exercise.name,
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
             ),
             // ── Score ────────────────────────────────────────────────────
             if (folder != null) ...[
@@ -265,7 +299,8 @@ class _ExerciseTile extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => ScoreViewerScreen(folder: folder!)),
+                      builder: (_) => ScoreViewerScreen(folder: folder!),
+                    ),
                   );
                 },
               ),
@@ -278,7 +313,8 @@ class _ExerciseTile extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => ScoreFolderScreen(folder: folder!)),
+                      builder: (_) => ScoreFolderScreen(folder: folder!),
+                    ),
                   );
                 },
               ),
@@ -286,23 +322,24 @@ class _ExerciseTile extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.add_photo_alternate_outlined),
                 title: const Text('Add Sheet Music'),
-                subtitle:
-                    const Text('This exercise has no score yet — attach one'),
+                subtitle: const Text(
+                  'This exercise has no score yet — attach one',
+                ),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  final repo = ref.read(scoreRepositoryProvider);
-                  final id = await repo.createFolder(
+                  final id = await scoreRepo.createFolder(
                     exercise.name,
                     exerciseId: exercise.id,
                     linkedPieceId: piece?.id,
                   );
-                  final created = await repo.getFolderById(id);
+                  final created = await scoreRepo.getFolderById(id);
                   if (created != null && context.mounted) {
                     // Straight into page import.
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => ScoreFolderScreen(folder: created)),
+                        builder: (_) => ScoreFolderScreen(folder: created),
+                      ),
                     );
                   }
                 },
@@ -320,7 +357,9 @@ class _ExerciseTile extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => PiecePlayerScreen(
-                          pieceId: piece!.id, title: piece!.title),
+                        pieceId: piece!.id,
+                        title: piece!.title,
+                      ),
                     ),
                   );
                 },
@@ -334,7 +373,9 @@ class _ExerciseTile extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => PieceEditorScreen(
-                          pieceId: piece!.id, title: piece!.title),
+                        pieceId: piece!.id,
+                        title: piece!.title,
+                      ),
                     ),
                   );
                 },
@@ -344,24 +385,26 @@ class _ExerciseTile extends ConsumerWidget {
                 leading: const Icon(Icons.timeline_outlined),
                 title: const Text('Add Piece Map'),
                 subtitle: const Text(
-                    'No measure tracking yet — design sections for this exercise'),
+                  'No measure tracking yet — design sections for this exercise',
+                ),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  final pieceRepo = ref.read(pieceRepositoryProvider);
-                  final pieceId = await pieceRepo.create(exercise.name,
-                      exerciseId: exercise.id);
+                  final pieceId = await pieceRepo.create(
+                    exercise.name,
+                    exerciseId: exercise.id,
+                  );
                   // Bind to the exercise's score so the canvas plays it.
                   if (folder != null) {
-                    await ref
-                        .read(scoreRepositoryProvider)
-                        .setLinkedPiece(folder!.id, pieceId);
+                    await scoreRepo.setLinkedPiece(folder!.id, pieceId);
                   }
                   if (context.mounted) {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => PieceEditorScreen(
-                            pieceId: pieceId, title: exercise.name),
+                          pieceId: pieceId,
+                          title: exercise.name,
+                        ),
                       ),
                     );
                   }
@@ -393,54 +436,63 @@ class _LegacyGroup extends ConsumerWidget {
     final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+      child: Material(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          leading: Icon(Icons.inventory_2_outlined,
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: Icon(
+              Icons.inventory_2_outlined,
               color: isDark
                   ? AppColors.darkTextSecondary
                   : AppColors.lightTextSecondary,
-              size: 24),
-          title: Text('Not linked to an exercise',
-              style: theme.textTheme.bodyLarge
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          subtitle: Text('Created before scores & pieces merged',
-              style: theme.textTheme.labelSmall),
-          childrenPadding: const EdgeInsets.only(bottom: 6),
-          children: [
-            for (final f in folders)
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 28, right: 16),
-                leading: const Icon(Icons.menu_book_outlined, size: 18),
-                title: Text(f.name, style: theme.textTheme.bodyMedium),
-                subtitle: Text('score', style: theme.textTheme.labelSmall),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => ScoreViewerScreen(folder: f)),
-                ),
+              size: 24,
+            ),
+            title: Text(
+              'Not linked to an exercise',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-            for (final p in pieces)
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 28, right: 16),
-                leading: const Icon(Icons.timeline_outlined, size: 18),
-                title: Text(p.title, style: theme.textTheme.bodyMedium),
-                subtitle: Text('piece', style: theme.textTheme.labelSmall),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        PiecePlayerScreen(pieceId: p.id, title: p.title),
+            ),
+            subtitle: Text(
+              'Created before scores & pieces merged',
+              style: theme.textTheme.labelSmall,
+            ),
+            childrenPadding: const EdgeInsets.only(bottom: 6),
+            children: [
+              for (final f in folders)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 28, right: 16),
+                  leading: const Icon(Icons.menu_book_outlined, size: 18),
+                  title: Text(f.name, style: theme.textTheme.bodyMedium),
+                  subtitle: Text('score', style: theme.textTheme.labelSmall),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ScoreViewerScreen(folder: f),
+                    ),
                   ),
                 ),
-              ),
-          ],
+              for (final p in pieces)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 28, right: 16),
+                  leading: const Icon(Icons.timeline_outlined, size: 18),
+                  title: Text(p.title, style: theme.textTheme.bodyMedium),
+                  subtitle: Text('piece', style: theme.textTheme.labelSmall),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          PiecePlayerScreen(pieceId: p.id, title: p.title),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

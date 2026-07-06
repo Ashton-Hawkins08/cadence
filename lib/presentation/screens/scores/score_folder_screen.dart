@@ -87,17 +87,20 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
           controller: controller,
           autofocus: true,
           maxLength: 60,
-          decoration:
-              const InputDecoration(hintText: 'e.g. Intro Sheet, Letter C'),
+          decoration: const InputDecoration(
+            hintText: 'e.g. Intro Sheet, Letter C',
+          ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -113,15 +116,20 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
     final pages = ref.watch(scorePagesProvider(widget.folder.id));
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       appBar: AppBar(
-        title: Text(widget.folder.name,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700)),
+        title: Text(
+          widget.folder.name,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         centerTitle: true,
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -133,7 +141,10 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : const Icon(Icons.add_photo_alternate_outlined),
         label: Text(_importing ? 'Importing…' : 'Import'),
       ),
@@ -193,61 +204,74 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
                       },
                       itemBuilder: (_, i) {
                         final page = list[i];
+                        // Material, not a decorated Container — the ListTile
+                        // needs an ink surface (debug assertion otherwise).
                         return Container(
                           key: ValueKey(page.id),
                           margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
+                          child: Material(
                             color: isDark
                                 ? AppColors.darkCard
                                 : AppColors.lightCard,
                             borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.file(
-                                File(page.imagePath),
-                                width: 44,
-                                height: 56,
-                                fit: BoxFit.cover,
-                                cacheWidth: 96,
-                                errorBuilder: (_, __, ___) => Container(
+                            clipBehavior: Clip.antiAlias,
+                            child: ListTile(
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.file(
+                                  File(page.imagePath),
                                   width: 44,
                                   height: 56,
-                                  color: AppColors.error
-                                      .withValues(alpha: 0.15),
-                                  child: const Icon(Icons.broken_image,
-                                      size: 20),
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 96,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 44,
+                                    height: 56,
+                                    color: AppColors.error.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            title: Text('${i + 1} · ${page.name}',
+                              title: Text(
+                                '${i + 1} · ${page.name}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600)),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (v) async {
-                                switch (v) {
-                                  case 'rename':
-                                    await _renamePage(page);
-                                  case 'delete':
-                                    await ref
-                                        .read(scoreRepositoryProvider)
-                                        .deletePage(page.id);
-                                }
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                    value: 'rename', child: Text('Rename')),
-                                PopupMenuItem(
-                                    value: 'delete', child: Text('Delete')),
-                              ],
-                            ),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ScoreViewerScreen(
-                                  folder: widget.folder,
-                                  initialPage: i,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (v) async {
+                                  switch (v) {
+                                    case 'rename':
+                                      await _renamePage(page);
+                                    case 'delete':
+                                      await ref
+                                          .read(scoreRepositoryProvider)
+                                          .deletePage(page.id);
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'rename',
+                                    child: Text('Rename'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ScoreViewerScreen(
+                                    folder: widget.folder,
+                                    initialPage: i,
+                                  ),
                                 ),
                               ),
                             ),

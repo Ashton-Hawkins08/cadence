@@ -58,7 +58,15 @@ class _TempoEarSheetState extends ConsumerState<TempoEarSheet> {
   MetronomeTimeSignature _signature = MetronomeTimeSignature.sig4_4;
   bool _running = false;
 
-  MicAnalysisService get _service => ref.read(micAnalysisServiceProvider);
+  // Captured once — dispose() and post-await callbacks must never touch
+  // `ref` (throws "Cannot use ref after the widget was disposed").
+  late final MicAnalysisService _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = ref.read(micAnalysisServiceProvider);
+  }
 
   @override
   void dispose() {
