@@ -102,6 +102,9 @@ class _TempoEarSheetState extends ConsumerState<TempoEarSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch keeps the autoDispose provider (and its recorder) alive while
+    // the sheet is open; initState's read alone would let it dispose.
+    ref.watch(micAnalysisServiceProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final mixed = beatUnitsFor(_signature).isNotEmpty;

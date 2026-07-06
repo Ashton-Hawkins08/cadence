@@ -56,6 +56,11 @@ class _TunerScreenState extends ConsumerState<TunerScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // Watch (not just read) — the provider is autoDispose, and only an
+    // active watch keeps the service + its recorder alive while this tab
+    // exists. Without it riverpod disposes the recorder right after
+    // initState and the first mic tap hits a disposed platform object.
+    ref.watch(micAnalysisServiceProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

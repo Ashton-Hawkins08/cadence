@@ -24,7 +24,9 @@ enum AnalysisMode { pitch, tempo }
 enum MicState { idle, running, denied, unsupported }
 
 class MicAnalysisService {
-  final AudioRecorder _recorder = AudioRecorder();
+  // Not final: if the platform side reports the handle disposed (provider
+  // teardown races, hot reload), we rebuild it instead of crashing.
+  AudioRecorder _recorder = AudioRecorder();
 
   Isolate? _isolate;
   SendPort? _workerPort;
@@ -50,11 +52,27 @@ class MicAnalysisService {
 
   /// [beatUnits] — eighth-note beat groups for mixed-meter tempo detection
   /// (e.g. [2,2,3] for 7/8); empty = even-beat mode. Ignored for pitch.
+  /// Permission check that survives a dead recorder handle: any platform
+  /// exception (e.g. "Recorder has already been disposed") rebuilds the
+  /// handle once and retries, rather than escaping as an unhandled crash.
+  Future<bool> _ensurePermission() async {
+    try {
+      return await _recorder.hasPermission();
+    } catch (_) {
+      _recorder = AudioRecorder();
+      try {
+        return await _recorder.hasPermission();
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
   Future<void> start(AnalysisMode mode,
       {List<int> beatUnits = const []}) async {
     await stop();
 
-    if (!await _recorder.hasPermission()) {
+    if (!await _ensurePermission()) {
       _setState(MicState.denied);
       return;
     }
@@ -72,12 +90,16 @@ class MicAnalysisService {
             final clarity = msg[2] as double;
             // Below ~0.6 clarity YIN is reading room noise — show "no pitch"
             // rather than a jittering wrong note.
-            _noteCtrl.add(clarity >= 0.6
-                ? NoteReading.fromFrequency(freq, clarity)
-                : null);
+            if (!_noteCtrl.isClosed) {
+              _noteCtrl.add(clarity >= 0.6
+                  ? NoteReading.fromFrequency(freq, clarity)
+                  : null);
+            }
           case 'tempo':
-            _tempoCtrl.add(TempoReading(
-                msg[1] as double, msg[2] as int, msg[3] as double));
+            if (!_tempoCtrl.isClosed) {
+              _tempoCtrl.add(TempoReading(
+                  msg[1] as double, msg[2] as int, msg[3] as double));
+            }
         }
       }
     });
