@@ -183,6 +183,8 @@ class _CategoryGroup extends StatelessWidget {
             ),
             title: Text(
               title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -236,6 +238,8 @@ class _ExerciseTile extends ConsumerWidget {
       contentPadding: const EdgeInsets.only(left: 28, right: 16),
       title: Text(
         exercise.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
         ),
@@ -467,7 +471,12 @@ class _LegacyGroup extends ConsumerWidget {
                   dense: true,
                   contentPadding: const EdgeInsets.only(left: 28, right: 16),
                   leading: const Icon(Icons.menu_book_outlined, size: 18),
-                  title: Text(f.name, style: theme.textTheme.bodyMedium),
+                  title: Text(
+                    f.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   subtitle: Text('score', style: theme.textTheme.labelSmall),
                   onTap: () => Navigator.push(
                     context,
@@ -481,7 +490,12 @@ class _LegacyGroup extends ConsumerWidget {
                   dense: true,
                   contentPadding: const EdgeInsets.only(left: 28, right: 16),
                   leading: const Icon(Icons.timeline_outlined, size: 18),
-                  title: Text(p.title, style: theme.textTheme.bodyMedium),
+                  title: Text(
+                    p.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   subtitle: Text('piece', style: theme.textTheme.labelSmall),
                   onTap: () => Navigator.push(
                     context,

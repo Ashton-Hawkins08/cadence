@@ -219,6 +219,8 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
             isDark ? AppColors.darkSurface : AppColors.lightSurface,
         elevation: 0,
         title: Text(widget.folder.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w700)),
         leading: IconButton(

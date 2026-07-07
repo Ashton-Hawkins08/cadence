@@ -122,6 +122,8 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
       appBar: AppBar(
         title: Text(
           widget.folder.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -239,6 +241,8 @@ class _ScoreFolderScreenState extends ConsumerState<ScoreFolderScreen> {
                               ),
                               title: Text(
                                 '${i + 1} · ${page.name}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),

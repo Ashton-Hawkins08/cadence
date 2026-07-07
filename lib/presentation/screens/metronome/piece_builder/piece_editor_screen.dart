@@ -81,6 +81,8 @@ class _PieceEditorScreenState extends ConsumerState<PieceEditorScreen> {
                 isDark ? AppColors.darkSurface : AppColors.lightSurface,
             elevation: 0,
             title: Text(widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             actions: [

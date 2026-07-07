@@ -639,8 +639,14 @@ class _RandomizerControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    // Wrap, not Row: the chip + button don't both fit on one line at narrow
+    // widths or larger system text sizes — wrapping lets the button drop to
+    // its own line instead of overflowing.
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         // Tappable: correct the base or widen/narrow the roll window.
         GestureDetector(
@@ -668,7 +674,6 @@ class _RandomizerControls extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
         FilledButton.icon(
           onPressed: () =>
               ref.read(randomizerProvider.notifier).randomizeAgain(),

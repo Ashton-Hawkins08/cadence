@@ -25,6 +25,20 @@ class CadenceApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      // Several screens (metronome BPM display, bottom nav labels) use large
+      // or tightly-packed fixed layouts that aren't designed to reflow.
+      // Uncapped system font scaling (accessibility "large text" settings)
+      // is the main real-world cause of overflow on those screens, so clamp
+      // it rather than redesigning every layout to survive 2–3x text.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3),
+          ),
+          child: child!,
+        );
+      },
       home: const _AppRoot(),
     );
   }

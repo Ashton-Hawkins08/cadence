@@ -133,6 +133,9 @@ class _NavButton extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: color,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
