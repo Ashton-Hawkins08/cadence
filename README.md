@@ -1,4 +1,18 @@
-# Cadence
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/images/logo_dark_full.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/images/logo_light_full.png">
+    <img alt="Cadence — Complete Musician Hub" src="assets/images/logo_light_full.png" width="520">
+  </picture>
+</p>
+
+<p align="center"><i>A native-timed, all-in-one practice engine for musicians — built with Flutter.</i></p>
+
+<p align="center">
+  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
+  <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white">
+  <img alt="Platforms" src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-4B45D6">
+</p>
 
 Cadence is an all-in-one practice assistant for musicians, built with Flutter. It replaces a folder of disconnected tools — a metronome app, a tuner app, a practice log, a binder of sheet music — with one offline-first workspace built around a single native-timed metronome engine.
 
