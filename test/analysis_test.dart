@@ -12,7 +12,12 @@ import 'package:cadence/domain/services/analysis/tempo_analyzer.dart';
 // real-world input, not just ideal loud signals. Regression tests for the
 // "Tempo Ear never heard a single beat" bug.
 
-const sr = 22050;
+const sr = 22050; // tempo path: decimated capture rate
+
+// Pitch runs on the FULL capture rate (see mic_analysis_service.dart) — short
+// periods at high notes need the extra samples/cycle to avoid octave errors.
+const pitchSr = 44100;
+const pitchWindow = 4096;
 
 /// Clicks (short noise bursts) at [intervalsMs], at [amplitude] of full scale,
 /// over a tiny noise floor. Returned as one long PCM16 buffer.
@@ -82,6 +87,16 @@ void main() {
       expect(r.bpm, closeTo(90, 3));
     });
 
+    test('detects a barely-there 100 BPM tap (0.4% full scale)', () {
+      final analyzer = TempoAnalyzer(sampleRate: sr);
+      final pcm = synthesizeClicks(List.filled(10, 600.0), amplitude: 0.004);
+      final r = feedTempo(analyzer, pcm);
+
+      expect(r.beatCount, greaterThanOrEqualTo(8),
+          reason: 'a soft fingertip tap must still register');
+      expect(r.bpm, closeTo(100, 4));
+    });
+
     test('7/8 mixed meter (2+2+3) reports quarter-note BPM', () {
       // eighth = 250 ms → quarter = 500 ms → ♩ = 120.
       // Main-beat intervals: 2e, 2e, 3e = 500, 500, 750 ms.
@@ -107,16 +122,46 @@ void main() {
 
       expect(r.bpm, closeTo(100, 4));
     });
+
+    test('sustained room noise (no taps) does not lock a false tempo', () {
+      // No clicks at all — just a noise floor 15x louder than the earlier
+      // "true silence" floor, run through the SAME gain stage a real quiet
+      // tap gets boosted by. Regression test for "mic is too sensitive": AGC
+      // must not turn amplified ambient noise into a stream of false onsets.
+      final analyzer = TempoAnalyzer(sampleRate: sr);
+      final pcm = synthesizeClicks(const [], amplitude: 0, floor: 0.01);
+      final r = feedTempo(analyzer, pcm);
+
+      expect(r.beatCount, lessThanOrEqualTo(1),
+          reason: 'gained-up ambient noise must not read as a series of '
+              'rhythmic beats');
+    });
+
+    test('a few random handling bumps do not lock a stable false tempo', () {
+      // Irregular, non-rhythmic transients (mic bumps, footsteps) — unlike a
+      // real practice signal, their intervals are randomized, not steady.
+      final analyzer = TempoAnalyzer(sampleRate: sr);
+      final rng = Random(3);
+      final intervals =
+          List.generate(8, (_) => 300.0 + rng.nextDouble() * 900);
+      final pcm = synthesizeClicks(intervals, amplitude: 0.02);
+      final r = feedTempo(analyzer, pcm);
+
+      expect(r.stability, lessThan(0.7),
+          reason: 'irregular transients must not be reported as a stable, '
+              'confident tempo lock');
+    });
   });
 
   group('PitchAnalyzer sensitivity', () {
     test('quiet 440 Hz sine (2% full scale) reads A4', () {
-      final analyzer = PitchAnalyzer(sampleRate: sr);
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
       final normalizer = SignalNormalizer();
-      final n = sr; // 1 second
+      final n = pitchSr; // 1 second
       final pcm = Int16List(n);
       for (var i = 0; i < n; i++) {
-        pcm[i] = (sin(2 * pi * 440 * i / sr) * 0.02 * 32767).round();
+        pcm[i] = (sin(2 * pi * 440 * i / pitchSr) * 0.02 * 32767).round();
       }
       PitchReading? last;
       const chunk = 2048;
@@ -134,16 +179,111 @@ void main() {
       expect(note.cents.abs(), lessThan(6));
     });
 
+    test('quiet low bass note (E1, 41 Hz) is within detection range', () {
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final normalizer = SignalNormalizer();
+      const freq = 41.2;
+      final n = pitchSr * 2; // low fundamentals need a longer capture
+      final pcm = Int16List(n);
+      for (var i = 0; i < n; i++) {
+        pcm[i] = (sin(2 * pi * freq * i / pitchSr) * 0.02 * 32767).round();
+      }
+      PitchReading? last;
+      const chunk = 2048;
+      for (var i = 0; i + chunk <= n; i += chunk) {
+        final piece = Int16List.fromList(pcm.sublist(i, i + chunk));
+        normalizer.normalize(piece);
+        final r = analyzer.process(piece);
+        if (r != null && r.frequency > 0) last = r;
+      }
+      expect(last, isNotNull, reason: 'low bass fundamentals must be reachable');
+      expect(last!.frequency, closeTo(freq, 2));
+    });
+
+    test('quiet high note (A6, 1760 Hz) is within detection range', () {
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final normalizer = SignalNormalizer();
+      const freq = 1760.0;
+      final n = pitchSr;
+      final pcm = Int16List(n);
+      for (var i = 0; i < n; i++) {
+        pcm[i] = (sin(2 * pi * freq * i / pitchSr) * 0.02 * 32767).round();
+      }
+      PitchReading? last;
+      const chunk = 2048;
+      for (var i = 0; i + chunk <= n; i += chunk) {
+        final piece = Int16List.fromList(pcm.sublist(i, i + chunk));
+        normalizer.normalize(piece);
+        final r = analyzer.process(piece);
+        if (r != null && r.frequency > 0) last = r;
+      }
+      expect(last, isNotNull, reason: 'high fundamentals must be reachable');
+      expect(last!.frequency, closeTo(freq, 5));
+    });
+
+    test('quiet very high note (2000 Hz) is within detection range', () {
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final normalizer = SignalNormalizer();
+      const freq = 2000.0;
+      final n = pitchSr;
+      final pcm = Int16List(n);
+      for (var i = 0; i < n; i++) {
+        pcm[i] = (sin(2 * pi * freq * i / pitchSr) * 0.02 * 32767).round();
+      }
+      PitchReading? last;
+      const chunk = 2048;
+      for (var i = 0; i + chunk <= n; i += chunk) {
+        final piece = Int16List.fromList(pcm.sublist(i, i + chunk));
+        normalizer.normalize(piece);
+        final r = analyzer.process(piece);
+        if (r != null && r.frequency > 0) last = r;
+      }
+      expect(last, isNotNull, reason: 'near-max-range fundamentals must be reachable');
+      // Loose tolerance: this is right at the edge of the detectable range,
+      // where sample resolution costs a few Hz of precision. The point of
+      // this test is ruling out an octave error (~1000 Hz off), not
+      // cent-perfect tuning this high.
+      expect(last!.frequency, closeTo(freq, 15));
+    });
+
     test('true silence produces no pitch', () {
-      final analyzer = PitchAnalyzer(sampleRate: sr);
-      final pcm = Int16List(sr); // digital zeros
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final pcm = Int16List(pitchSr); // digital zeros
       PitchReading? confident;
       const chunk = 2048;
       for (var i = 0; i + chunk <= pcm.length; i += chunk) {
         final r = analyzer.process(Int16List.sublistView(pcm, i, i + chunk));
-        if (r != null && r.frequency > 0 && r.clarity >= 0.5) confident = r;
+        if (r != null && r.frequency > 0 && r.clarity >= 0.45) confident = r;
       }
       expect(confident, isNull);
+    });
+
+    test('broadband room noise does not read as a confident note', () {
+      // Random (non-periodic) noise, gained up the same way a quiet real
+      // signal would be — YIN should find no clean periodicity in it.
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final normalizer = SignalNormalizer();
+      final rng = Random(11);
+      final n = pitchSr * 2;
+      final pcm = Int16List(n);
+      for (var i = 0; i < n; i++) {
+        pcm[i] = ((rng.nextDouble() * 2 - 1) * 0.01 * 32767).round();
+      }
+      PitchReading? confident;
+      const chunk = 2048;
+      for (var i = 0; i + chunk <= n; i += chunk) {
+        final piece = Int16List.fromList(pcm.sublist(i, i + chunk));
+        normalizer.normalize(piece);
+        final r = analyzer.process(piece);
+        if (r != null && r.frequency > 0 && r.clarity >= 0.45) confident = r;
+      }
+      expect(confident, isNull,
+          reason: 'gained-up random noise must not be reported as a note');
     });
   });
 }

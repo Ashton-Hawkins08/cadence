@@ -188,7 +188,14 @@ class _TempoEarSheetState extends ConsumerState<TempoEarSheet> {
             ),
 
           // ── Live reading ─────────────────────────────────────────────────
-          Expanded(child: _TempoReadout(service: _service, isDark: isDark)),
+          // Scrollable: the mixed-meter note above and larger system text
+          // sizes can push this sheet's fixed-height content past what's
+          // available — scroll instead of overflowing.
+          Expanded(
+            child: SingleChildScrollView(
+              child: _TempoReadout(service: _service, isDark: isDark),
+            ),
+          ),
 
           // ── Mic control ──────────────────────────────────────────────────
           Padding(
@@ -271,6 +278,24 @@ class _TempoReadout extends StatelessWidget {
                     letterSpacing: 2,
                   ),
                 ),
+                if (locked) ...[
+                  const SizedBox(height: 10),
+                  // Cadence can't tell WHICH note value your taps were —
+                  // if it read eighths as quarters the real tempo is half
+                  // this, and if it read half notes as quarters the real
+                  // tempo is double. Show both so the reading isn't
+                  // mistaken for the only possibility.
+                  Text(
+                    'in doubt? try ½ ${(r.bpm / 2).round()}   ·   '
+                    '2× ${(r.bpm * 2).round()}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 SizedBox(
                   width: 220,

@@ -115,14 +115,15 @@ class TempoAnalyzer {
       final sorted = [..._envelope]..sort();
       final median = sorted[sorted.length ~/ 2];
       final mad = _mad(sorted, median);
-      // RELATIVE threshold: a transient must stand well above the recent
-      // envelope (2.2× its median, or 3 MADs). The original version used an
-      // absolute floor of 0.008 (−42 dBFS) which sits ABOVE what a raw,
-      // un-gained laptop mic delivers for a clap — so no onset ever fired.
-      // The 0.002 floor only suppresses near-digital silence; real gating
-      // comes from the relative terms (input arrives pre-normalized — see
-      // SignalNormalizer).
-      final threshold = max(median * 2.2, max(median + 3 * mad, 0.002));
+      // RELATIVE threshold: a transient must stand above the recent envelope
+      // (1.6× its median, or 2 MADs). The original version used an absolute
+      // floor of 0.008 (−42 dBFS) which sits ABOVE what a raw, un-gained
+      // laptop mic delivers for a clap — so no onset ever fired. The 0.0012
+      // floor only suppresses near-digital silence; real gating comes from
+      // the relative terms (input arrives pre-normalized — see
+      // SignalNormalizer). Kept deliberately loose so soft taps and distant
+      // claps still cross it.
+      final threshold = max(median * 1.6, max(median + 2 * mad, 0.0012));
 
       final rising = rms > threshold && _prevRms <= threshold;
       if (rising && _clockMs - _lastOnsetMs > _refractoryMs) {

@@ -19,8 +19,8 @@ class SignalNormalizer {
   double _trackedPeak = 512.0;
 
   static const double _decayPerChunk = 0.99;
-  static const double _peakFloor = 96.0; // stops gain winding into noise
-  static const double _maxGain = 48.0;
+  static const double _peakFloor = 48.0; // stops gain winding into noise
+  static const double _maxGain = 80.0;
   static const double _target = 16384.0; // half of int16 full scale
 
   /// Scales [samples] in place; returns the gain that was applied.

@@ -48,8 +48,8 @@ class PitchAnalyzer {
   PitchAnalyzer({
     this.sampleRate = 22050,
     this.windowSize = 2048,
-    this.minFrequency = 55, // A1 — covers bass guitar/cello low range
-    this.maxFrequency = 1760, // A6 — top of common instrument tuning range
+    this.minFrequency = 40, // E1 — covers 5-string bass / low cello
+    this.maxFrequency = 2100, // ~C7 — covers piccolo/violin harmonics
     this.threshold = 0.15,
   }) : _buffer = Float64List(windowSize) {
     _tauMin = max(2, sampleRate ~/ maxFrequency.round());
@@ -83,7 +83,7 @@ class PitchAnalyzer {
     for (var i = 0; i < windowSize; i++) {
       energy += _buffer[i] * _buffer[i];
     }
-    if (energy / windowSize < 1e-6) return PitchReading.none; // ≈ −60 dBFS
+    if (energy / windowSize < 3e-7) return PitchReading.none; // ≈ −65 dBFS
 
     // 1. difference function
     for (var tau = _tauMin; tau <= _tauMax; tau++) {
@@ -114,6 +114,22 @@ class PitchAnalyzer {
       }
     }
     if (tauEstimate == -1) return PitchReading.none;
+
+    // 3b. octave-down correction — at short periods (high notes), the true
+    // τ can sit between integer samples closely enough that quantization
+    // keeps it just above threshold, while 2τ happens to align almost
+    // exactly with an integer and dips further below it. A pure tone is
+    // never ALSO periodic at a divisor of its true period (only at
+    // multiples), so if a comparably small local minimum exists near τ/2,
+    // it can only be the real (higher) fundamental — prefer it.
+    final halfTau = tauEstimate ~/ 2;
+    if (halfTau >= _tauMin + 1 &&
+        halfTau < tauEstimate &&
+        _diff[halfTau] <= _diff[halfTau - 1] &&
+        _diff[halfTau] <= _diff[halfTau + 1] &&
+        _diff[halfTau] <= _diff[tauEstimate] * 1.5) {
+      tauEstimate = halfTau;
+    }
 
     // 4. parabolic interpolation for sub-sample τ
     final y0 = _diff[tauEstimate - 1];

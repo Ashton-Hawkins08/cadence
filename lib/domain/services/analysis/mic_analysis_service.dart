@@ -89,10 +89,10 @@ class MicAnalysisService {
           case 'pitch':
             final freq = msg[1] as double;
             final clarity = msg[2] as double;
-            // Below ~0.5 clarity YIN is reading room noise — show "no pitch"
+            // Below ~0.45 clarity YIN is reading room noise — show "no pitch"
             // rather than a jittering wrong note.
             if (!_noteCtrl.isClosed) {
-              _noteCtrl.add(clarity >= 0.5
+              _noteCtrl.add(clarity >= 0.45
                   ? NoteReading.fromFrequency(freq, clarity)
                   : null);
             }
@@ -172,10 +172,13 @@ void _workerMain(_WorkerConfig cfg) {
   cfg.out.send(inbox.sendPort);
 
   final mode = AnalysisMode.values[cfg.modeIndex];
-  // Both analyzers run at 22.05 kHz — half the capture rate. Decimation by 2
-  // (with pair-averaging as a crude anti-alias low-pass) halves the DSP cost
-  // and everything musical we care about lives well below the new Nyquist.
-  final pitch = PitchAnalyzer(sampleRate: 22050);
+  // Tempo only needs the coarse envelope, so it runs decimated at 22.05 kHz
+  // (halves DSP cost). Pitch runs at the FULL 44.1 kHz capture rate: high
+  // notes (violin/flute range) only span ~12 samples/cycle once decimated,
+  // too few for YIN to resolve the true period over its first (correct)
+  // harmonic — see the octave-error note in pitch_analyzer.dart. Full rate
+  // doubles the samples/cycle everywhere and removes that ambiguity.
+  final pitch = PitchAnalyzer(sampleRate: 44100, windowSize: 4096);
   final tempo = TempoAnalyzer(sampleRate: 22050, beatUnits: cfg.beatUnits);
 
   // Software gain: raw mic input often peaks at 1–5% of full scale, which
@@ -187,22 +190,27 @@ void _workerMain(_WorkerConfig cfg) {
   inbox.listen((msg) {
     if (msg is! Uint8List || msg.length < 4) return;
 
-    // PCM16 little-endian → Int16, decimated 2:1 by averaging pairs.
     final bd = ByteData.sublistView(msg);
     final sampleCount = msg.length ~/ 2;
-    final out = Int16List(sampleCount ~/ 2);
-    for (var i = 0; i + 1 < sampleCount; i += 2) {
-      final a = bd.getInt16(i * 2, Endian.little);
-      final b = bd.getInt16(i * 2 + 2, Endian.little);
-      out[i >> 1] = (a + b) >> 1;
-    }
-    normalizer.normalize(out);
 
     switch (mode) {
       case AnalysisMode.pitch:
-        final r = pitch.process(out);
+        final raw = Int16List(sampleCount);
+        for (var i = 0; i < sampleCount; i++) {
+          raw[i] = bd.getInt16(i * 2, Endian.little);
+        }
+        normalizer.normalize(raw);
+        final r = pitch.process(raw);
         if (r != null) cfg.out.send(['pitch', r.frequency, r.clarity]);
       case AnalysisMode.tempo:
+        // PCM16 little-endian → Int16, decimated 2:1 by averaging pairs.
+        final out = Int16List(sampleCount ~/ 2);
+        for (var i = 0; i + 1 < sampleCount; i += 2) {
+          final a = bd.getInt16(i * 2, Endian.little);
+          final b = bd.getInt16(i * 2 + 2, Endian.little);
+          out[i >> 1] = (a + b) >> 1;
+        }
+        normalizer.normalize(out);
         final r = tempo.process(out);
         if (r != null) {
           cfg.out.send(
