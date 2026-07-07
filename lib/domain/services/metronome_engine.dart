@@ -29,6 +29,9 @@ class MetronomeState {
   final BeatLevel? lastFiredLevel;
   // Cognitive break training mode (tempo micro-fluctuations + dropped beats)
   final bool cognitiveBreakActive;
+  // Piece mode: currently playing the count-in measure (one measure of the
+  // first section's pattern before the piece proper begins).
+  final bool countInActive;
 
   const MetronomeState({
     required this.isPlaying,
@@ -45,6 +48,7 @@ class MetronomeState {
     required this.currentMeasure,
     this.lastFiredLevel,
     this.cognitiveBreakActive = false,
+    this.countInActive = false,
   });
 
   static MetronomeState initial() => const MetronomeState(
@@ -214,6 +218,13 @@ class MetronomeEngine {
   List<SectionConfig>? _sections;
   int _sectionIndex = 0;
   bool _pendingMeasureIncrement = false;
+  // Count-in: one measure of section 0's pattern played BEFORE the piece's
+  // first measure. Implemented by starting _currentMeasure one below the
+  // first section's startMeasure — the count-in measure is musically
+  // identical to a measure of section 0 (same signature, tempo, accents),
+  // and section/page logic never triggers because the measure number is
+  // still outside every section's range.
+  bool _countInActive = false;
   void Function(int sectionIndex)? onSectionChanged;
   void Function()? onPieceComplete;
 
@@ -463,11 +474,12 @@ class MetronomeEngine {
   int get _liveMeasureLen =>
       _cognitiveActive ? _cbMeasureLen : _pattern.length;
 
-  void start({List<SectionConfig>? sections}) {
+  void start({List<SectionConfig>? sections, bool countIn = false}) {
     if (_isPlaying) stop();
     _sections = sections;
     _sectionIndex = 0;
-    if (sections != null && sections.isNotEmpty) {
+    final hasSections = sections != null && sections.isNotEmpty;
+    if (hasSections) {
       _applySectionConfig(sections[0]);
     }
     _isPlaying = true;
@@ -475,7 +487,12 @@ class MetronomeEngine {
     _tickIndex = 0;
     _firedTickIndex = 0;
     _visualBeatIndex = 0;
-    _currentMeasure = 1;
+    _countInActive = countIn && hasSections;
+    // Count-in: begin one measure BELOW the piece's first measure. The
+    // measure boundary at the end of the count-in increments into
+    // startMeasure and the piece proper begins.
+    _currentMeasure =
+        _countInActive ? sections![0].startMeasure - 1 : 1;
     _pendingMeasureIncrement = false;
     _stopwatch.reset();
     _stopwatch.start();
@@ -527,6 +544,7 @@ class MetronomeEngine {
     _currentMeasure = 1;
     _pendingMeasureIncrement = false;
     _sections = null;
+    _countInActive = false;
     _tapTimes.clear();
     _emit();
   }
@@ -634,6 +652,7 @@ class MetronomeEngine {
   bool get isPaused => _isPaused;
   int get currentSectionIndex => _sectionIndex;
   bool get isPieceMode => _sections != null;
+  bool get isCountingIn => _countInActive;
 
   // ── Internal tick loop ─────────────────────────────────────────────────────
 
@@ -657,6 +676,13 @@ class MetronomeEngine {
     if (_pendingMeasureIncrement) {
       _currentMeasure++;
       _pendingMeasureIncrement = false;
+      // The count-in ends the moment the measure counter reaches the piece's
+      // first real measure.
+      if (_countInActive) {
+        final firstMeasure =
+            _sections?.isNotEmpty == true ? _sections![0].startMeasure : 1;
+        if (_currentMeasure >= firstMeasure) _countInActive = false;
+      }
       _checkSectionTransition();
       if (!_isPlaying) return;
     }
@@ -800,6 +826,7 @@ class MetronomeEngine {
       currentMeasure: _currentMeasure,
       lastFiredLevel: lastFiredLevel,
       cognitiveBreakActive: _cognitiveActive,
+      countInActive: _countInActive,
     ));
   }
 

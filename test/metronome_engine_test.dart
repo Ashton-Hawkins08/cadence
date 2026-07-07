@@ -501,4 +501,61 @@ void main() {
       expect(engine.currentSectionIndex, 0);
     });
   });
+
+  group('piece count-in', () {
+    final config = [
+      SectionConfig(
+        startMeasure: 1,
+        endMeasure: 1,
+        bpm: AppConstants.maxBpm,
+        timeSignature: MetronomeTimeSignature.sig1_4,
+        subdivision: MetronomeSubdivision.quarter,
+        accentFirstBeat: false,
+      ),
+    ];
+
+    test('count-in is active at start and ends after one measure', () async {
+      engine.start(sections: config, countIn: true);
+      expect(engine.isCountingIn, isTrue,
+          reason: 'count-in must be active immediately after start');
+
+      // 1/4 @ maxBpm → count-in measure is ~200 ms; poll until it clears.
+      for (var i = 0; i < 30 && engine.isCountingIn; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      expect(engine.isCountingIn, isFalse,
+          reason: 'count-in must end after its single measure');
+    });
+
+    test('count-in delays completion by exactly one measure', () async {
+      // Without count-in this 1-measure piece completes after 1 measure;
+      // with it, after 2. Verify completion still fires (the piece is not
+      // stuck at measure 0) and that the count-in preceded it.
+      var complete = false;
+      engine.onPieceComplete = () => complete = true;
+      engine.start(sections: config, countIn: true);
+
+      for (var i = 0; i < 30 && !complete; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      expect(complete, isTrue,
+          reason: 'piece must still complete after a count-in');
+    });
+
+    test('countIn: false leaves behavior unchanged', () {
+      engine.start(sections: config);
+      expect(engine.isCountingIn, isFalse);
+      engine.stop();
+      // Non-piece playback can never count in, even if requested.
+      engine.start(countIn: true);
+      expect(engine.isCountingIn, isFalse);
+    });
+
+    test('stop() during count-in clears the flag', () {
+      engine.start(sections: config, countIn: true);
+      expect(engine.isCountingIn, isTrue);
+      engine.stop();
+      expect(engine.isCountingIn, isFalse);
+    });
+  });
 }

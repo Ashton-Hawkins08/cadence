@@ -52,6 +52,7 @@ class MetronomeChannel {
 
   static void PlayPcm(const std::string& name);
   static void CloseWaveOut();
+  static void WarmupAudioRoute();
 
   // ── Beat thread ──────────────────────────────────────────────────────────
   static std::thread       s_beatThread;

@@ -23,6 +23,9 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
   List<SectionConfig>? _configs;
   int _activeSectionIndex = 0;
   bool _complete = false;
+  // One measure of the first section's signature/tempo before measure 1 —
+  // applies on the next (re)start when toggled mid-play.
+  bool _countIn = true;
 
   late AnimationController _flashCtrl;
   late Animation<double> _flashAnim;
@@ -70,7 +73,7 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
     engine.onSectionChanged = (idx) =>
         setState(() => _activeSectionIndex = idx);
     engine.onPieceComplete = () => setState(() => _complete = true);
-    engine.start(sections: _configs);
+    engine.start(sections: _configs, countIn: _countIn);
 
     _stateSub?.cancel();
     // Only drive the flash animation here; _activeSectionIndex is updated
@@ -109,6 +112,8 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
                 isDark ? AppColors.darkSurface : AppColors.lightSurface,
             elevation: 0,
             title: Text(widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             leading: IconButton(
@@ -165,6 +170,50 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
               activeSectionIndex: _activeSectionIndex,
               isDark: isDark,
               theme: theme,
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Count-in toggle ─────────────────────────────────────────
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.hourglass_top,
+                      size: 20, color: AppColors.indigoNavySoft),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Count-in',
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          'One measure of the first section before the piece',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _countIn,
+                    activeColor: AppColors.indigoNavySoft,
+                    onChanged: (on) => setState(() => _countIn = on),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 28),
@@ -238,11 +287,13 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
                           _lastVisualBeat = -1;
                         });
                         if (_configs != null) {
-                          engine.start(sections: _configs);
+                          engine.start(
+                              sections: _configs, countIn: _countIn);
                         }
                       } else if (!state.isPlaying && !state.isPaused) {
                         if (_configs != null) {
-                          engine.start(sections: _configs);
+                          engine.start(
+                              sections: _configs, countIn: _countIn);
                         }
                       } else if (state.isPlaying && !state.isPaused) {
                         engine.pause();
@@ -332,7 +383,11 @@ class _LiveDisplay extends StatelessWidget {
               children: [
                 _Stat(label: 'BPM', value: '${state.bpm}'),
                 _Stat(label: 'Time Sig', value: ts.display),
-                _Stat(label: 'Measure', value: 'M${state.currentMeasure}'),
+                _Stat(
+                    label: 'Measure',
+                    value: state.countInActive
+                        ? '—'
+                        : 'M${state.currentMeasure}'),
                 _Stat(
                     label: 'Section',
                     value:
@@ -341,7 +396,9 @@ class _LiveDisplay extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '$measuresRemaining measure${measuresRemaining == 1 ? '' : 's'} remaining in section',
+              state.countInActive
+                  ? 'Count-in — piece starts on the next downbeat'
+                  : '$measuresRemaining measure${measuresRemaining == 1 ? '' : 's'} remaining in section',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: Colors.white70, fontStyle: FontStyle.italic),
             ),

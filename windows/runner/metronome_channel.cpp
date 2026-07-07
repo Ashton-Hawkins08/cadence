@@ -135,6 +135,38 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
     waveOutWrite(s_hWaveOut, &hdr, sizeof(WAVEHDR));
 }
 
+// Pushes silence through the device and BLOCKS until it has drained.
+//
+// Two reasons this exists (and why init-time warm-up alone was not enough):
+//   1. The Windows shared-mode audio engine spins its render route down after
+//      a stretch of silence. The first waveOutWrite of a session then pays a
+//      route-restart cost of tens of ms — all of it landing on beat 0, which
+//      audibly shortens the beat0→beat1 gap ("clustered" start). Warming at
+//      init only absorbs this once; every start/resume needs it.
+//   2. waveOut plays queued buffers SEQUENTIALLY. If beat 0 is written while
+//      warm-up silence is still draining, beat 0 starts late by the silence
+//      remainder. So the warm-up must finish before the beat thread launches
+//      — hence the drain wait.
+//
+// Runs on the platform thread; worst case (cold route) is ~40-100 ms once per
+// user tap of play/resume, well below perceptible tap-to-sound delay.
+void MetronomeChannel::WarmupAudioRoute() {
+  PlayPcm("_warmup");
+  for (int waited = 0; waited < 150; waited += 2) {
+    bool draining = false;
+    {
+      std::lock_guard<std::mutex> lk(s_wavMutex);
+      auto it = s_wavSounds.find("_warmup");
+      if (it == s_wavSounds.end()) return;
+      for (const auto& hdr : it->second.hdrs) {
+        if (hdr.dwFlags & WHDR_INQUEUE) { draining = true; break; }
+      }
+    }
+    if (!draining) return;
+    Sleep(2);
+  }
+}
+
 // ── Beat thread ───────────────────────────────────────────────────────────────
 //
 // Runs at THREAD_PRIORITY_TIME_CRITICAL, entirely independent of the Dart/Flutter
@@ -307,20 +339,15 @@ void MetronomeChannel::HandleMethodCall(
         }
       }
 
-      // Warm the audio path. waveOutOpen only opens the handle — Windows
-      // creates the actual render route on the FIRST waveOutWrite, which
-      // costs tens of milliseconds on some audio stacks. If that first
-      // write is beat 0 of a session, beat 0 sounds late and the gap to
-      // beat 1 sounds too short. Pushing 40 ms of silence through the
-      // device here (inaudible, at init time) absorbs that one-time cost
-      // so every session's first beat plays with the same latency as the
-      // rest.
+      // Register the warm-up silence buffer. WarmupAudioRoute() pushes it
+      // through the device at init AND at every start/resume — see its
+      // comment for why once at init is not enough.
       {
         WavSound silence;
         silence.pcm.assign(22050 * 2 * 40 / 1000, 0); // 40 ms @ 22.05k s16
         s_wavSounds["_warmup"] = std::move(silence);
       }
-      PlayPcm("_warmup");
+      WarmupAudioRoute();
     }
     result->Success();
 
@@ -346,6 +373,9 @@ void MetronomeChannel::HandleMethodCall(
       }
     }
     s_resetRequested.store(false, std::memory_order_release);
+    // Re-warm the render route so beat 0's click sees the same (hot) path
+    // latency as every later click — the whole point of native timing.
+    WarmupAudioRoute();
     StartBeatThread();
     result->Success();
 
@@ -360,6 +390,10 @@ void MetronomeChannel::HandleMethodCall(
     result->Success();
 
   } else if (method == "resume") {
+    // Warm BEFORE unpausing: the beat thread is still counting this as
+    // paused time, so the pause-offset arithmetic absorbs the warm-up wait
+    // and the first resumed beat fires on a hot route at the right instant.
+    WarmupAudioRoute();
     s_paused.store(false, std::memory_order_release);
     result->Success();
 
