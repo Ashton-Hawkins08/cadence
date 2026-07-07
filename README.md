@@ -60,18 +60,18 @@ Most practice tools solve one problem in isolation. Cadence ties them together: 
 
 ```
 lib/
-  core/            App-wide constants, theme, and design tokens
-  data/
-    database/       Drift schema, tables, and migrations
-    repositories/    Data access layer between the database and the app
-  domain/
-    models/          Plain data models
-    services/        Business logic — metronome engine, audio analysis (pitch/tempo)
-    validators/      Input validation
-  presentation/
-    providers/       Riverpod providers wiring state to the UI
-    screens/         One folder per feature (metronome, tuner, scores, calendar, stats, ...)
-    widgets/         Shared, reusable UI components
+├── core/              App-wide constants, theme, and design tokens
+├── data/
+│   ├── database/      Drift schema, tables, and migrations
+│   └── repositories/  Data access layer between the database and the app
+├── domain/
+│   ├── models/        Plain data models
+│   ├── services/      Business logic — metronome engine, audio analysis (pitch/tempo)
+│   └── validators/    Input validation
+└── presentation/
+    ├── providers/     Riverpod providers wiring state to the UI
+    ├── screens/       One folder per feature (metronome, tuner, scores, calendar, stats, ...)
+    └── widgets/       Shared, reusable UI components
 ```
 
 Each feature screen owns its providers and widgets; shared logic (the metronome engine, DSP analyzers, database access) lives in `domain/` and `data/` so it isn't duplicated across screens.
@@ -84,3 +84,50 @@ flutter run
 ```
 
 Requires the Flutter SDK (channel stable) and a connected device or emulator. Windows desktop builds require Visual Studio with the "Desktop development with C++" workload.
+
+<details>
+<summary><b>A closer look:</b> spinning up the audio-analysis isolate</summary>
+
+<br>
+
+Pitch and tempo detection run on a dedicated `Isolate`, not the UI thread — a busy analysis frame can't drop a Flutter frame or compete with the metronome's own audio thread. The handshake below hands the worker a `SendPort` before a single PCM chunk is allowed to arrive:
+
+```dart
+// Worker isolate first, so no PCM chunk can arrive port-less.
+_fromWorker = ReceivePort();
+final ready = Completer<SendPort>();
+_resultSub = _fromWorker!.listen((msg) {
+  if (msg is SendPort) {
+    ready.complete(msg);
+  } else if (msg is List && msg.isNotEmpty) {
+    switch (msg[0]) {
+      case 'pitch':
+        final freq = msg[1] as double;
+        final clarity = msg[2] as double;
+        // Below ~0.5 clarity YIN is reading room noise — show "no pitch"
+        // rather than a jittering wrong note.
+        if (!_noteCtrl.isClosed) {
+          _noteCtrl.add(clarity >= 0.5
+              ? NoteReading.fromFrequency(freq, clarity)
+              : null);
+        }
+      case 'tempo':
+        if (!_tempoCtrl.isClosed) {
+          _tempoCtrl.add(TempoReading(
+              msg[1] as double, msg[2] as int, msg[3] as double,
+              msg.length > 4 ? msg[4] as double : 0));
+        }
+    }
+  }
+});
+_isolate = await Isolate.spawn(
+  _workerMain,
+  _WorkerConfig(_fromWorker!.sendPort, mode.index, beatUnits),
+  debugName: 'cadence-mic-analysis',
+);
+_workerPort = await ready.future;
+```
+
+Full source: [`lib/domain/services/analysis/mic_analysis_service.dart`](lib/domain/services/analysis/mic_analysis_service.dart)
+
+</details>
