@@ -2,9 +2,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cadence/core/constants/metronome_constants.dart';
 
 // Sum of all quarterNoteMultipliers in a pattern must equal the measure's
-// duration expressed in quarter notes: numerator / (denominator / 4).
-double _expectedDuration(MetronomeTimeSignature ts) =>
-    ts.numerator * (4 / ts.denominator);
+// duration in BPM units. The unit depends on the meter class (see the
+// convention note in metronome_constants.dart):
+//   • simple x/4 and asymmetric x/8 (5/8, 7/8, 11/8): unit = quarter note,
+//     so a measure spans numerator × 4/denominator units
+//   • compound x/8 (3/8, 6/8, 9/8, 12/8): unit = DOTTED QUARTER (matches
+//     Dr. Beat/Korg/Boss hardware — 6/8 @120 clicks 120 dotted quarters a
+//     minute), so a measure spans numerator/3 units
+double _expectedDuration(MetronomeTimeSignature ts) {
+  const compound = {
+    MetronomeTimeSignature.sig3_8,
+    MetronomeTimeSignature.sig6_8,
+    MetronomeTimeSignature.sig9_8,
+    MetronomeTimeSignature.sig12_8,
+  };
+  if (compound.contains(ts)) return ts.numerator / 3.0;
+  return ts.numerator * (4 / ts.denominator);
+}
 
 double _patternDuration(List<MetronomeTick> p) =>
     p.fold(0.0, (sum, t) => sum + t.quarterNoteMultiplier);

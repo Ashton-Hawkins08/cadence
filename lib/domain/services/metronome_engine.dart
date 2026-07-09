@@ -516,7 +516,15 @@ class MetronomeEngine {
         //       long the channel round-trip took.
         final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
         _nextBeatMs = nowMs;
+        // pause() can land before this handshake resolves. Don't flash a
+        // visual beat (or emit state) while paused — the anchored
+        // _nextBeatMs makes beat 0 fire on the first post-resume poll, and
+        // resume() owns timer creation for that case.
+        if (_isPaused) return;
         _fireBeat(nowMs);
+        // A resume() racing ahead of this callback may have already started
+        // a poll timer — cancel it so exactly one timer ever runs.
+        _timer?.cancel();
         _timer = Timer.periodic(const Duration(milliseconds: 4), _poll);
       });
     } else {

@@ -209,7 +209,7 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
                   ),
                   Switch(
                     value: _countIn,
-                    activeColor: AppColors.indigoNavySoft,
+                    activeThumbColor: AppColors.indigoNavySoft,
                     onChanged: (on) => setState(() => _countIn = on),
                   ),
                 ],

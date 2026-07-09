@@ -509,7 +509,7 @@ class _SectionCardState extends State<_SectionCard> {
                     setState(() => d.accentFirstBeat = v);
                     widget.onChanged();
                   },
-                  activeColor: AppColors.indigoNavySoft,
+                  activeThumbColor: AppColors.indigoNavySoft,
                 ),
               ],
             ),

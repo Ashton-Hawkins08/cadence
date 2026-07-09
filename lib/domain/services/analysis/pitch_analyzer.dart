@@ -115,22 +115,6 @@ class PitchAnalyzer {
     }
     if (tauEstimate == -1) return PitchReading.none;
 
-    // 3b. octave-down correction — at short periods (high notes), the true
-    // τ can sit between integer samples closely enough that quantization
-    // keeps it just above threshold, while 2τ happens to align almost
-    // exactly with an integer and dips further below it. A pure tone is
-    // never ALSO periodic at a divisor of its true period (only at
-    // multiples), so if a comparably small local minimum exists near τ/2,
-    // it can only be the real (higher) fundamental — prefer it.
-    final halfTau = tauEstimate ~/ 2;
-    if (halfTau >= _tauMin + 1 &&
-        halfTau < tauEstimate &&
-        _diff[halfTau] <= _diff[halfTau - 1] &&
-        _diff[halfTau] <= _diff[halfTau + 1] &&
-        _diff[halfTau] <= _diff[tauEstimate] * 1.5) {
-      tauEstimate = halfTau;
-    }
-
     // 4. parabolic interpolation for sub-sample τ
     final y0 = _diff[tauEstimate - 1];
     final y1 = _diff[tauEstimate];

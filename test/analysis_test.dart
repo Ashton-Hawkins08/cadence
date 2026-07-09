@@ -249,6 +249,37 @@ void main() {
       expect(last!.frequency, closeTo(freq, 15));
     });
 
+    test('harmonically rich low note reads the fundamental, not the octave',
+        () {
+      // A2 (110 Hz) with a 2nd harmonic STRONGER than the fundamental —
+      // typical of guitar/cello low strings, and the classic trigger for
+      // octave-up misreads: the difference function also dips at τ/2.
+      final analyzer =
+          PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);
+      final normalizer = SignalNormalizer();
+      const freq = 110.0;
+      final n = pitchSr;
+      final pcm = Int16List(n);
+      for (var i = 0; i < n; i++) {
+        final t = i / pitchSr;
+        final v = 0.010 * sin(2 * pi * freq * t) +
+            0.012 * sin(2 * pi * freq * 2 * t) +
+            0.005 * sin(2 * pi * freq * 3 * t);
+        pcm[i] = (v * 32767).round();
+      }
+      PitchReading? last;
+      const chunk = 2048;
+      for (var i = 0; i + chunk <= n; i += chunk) {
+        final piece = Int16List.fromList(pcm.sublist(i, i + chunk));
+        normalizer.normalize(piece);
+        final r = analyzer.process(piece);
+        if (r != null && r.frequency > 0) last = r;
+      }
+      expect(last, isNotNull);
+      expect(last!.frequency, closeTo(110, 3),
+          reason: 'must read the fundamental, not 220 (octave-up error)');
+    });
+
     test('true silence produces no pitch', () {
       final analyzer =
           PitchAnalyzer(sampleRate: pitchSr, windowSize: pitchWindow);

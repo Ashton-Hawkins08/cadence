@@ -265,7 +265,7 @@ class _StandardMetronomeScreenState
                   Switch(
                     value: state.accentFirstBeat,
                     onChanged: engine.setAccentFirstBeat,
-                    activeColor: AppColors.indigoNavySoft,
+                    activeThumbColor: AppColors.indigoNavySoft,
                   ),
                 ],
               ),
@@ -730,7 +730,7 @@ class _RandomizerToggleCard extends ConsumerWidget {
           ),
           Switch(
             value: rand.enabled,
-            activeColor: AppColors.indigoNavySoft,
+            activeThumbColor: AppColors.indigoNavySoft,
             onChanged: (on) {
               final ctrl = ref.read(randomizerProvider.notifier);
               on ? ctrl.enable() : ctrl.disable();
@@ -940,7 +940,7 @@ class _CognitiveBreakCardState extends ConsumerState<_CognitiveBreakCard> {
           ),
           Switch(
             value: active,
-            activeColor: AppColors.indigoNavySoft,
+            activeThumbColor: AppColors.indigoNavySoft,
             onChanged: (on) {
               if (on) {
                 // The break needs a running clock to attach to.
