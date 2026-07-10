@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cadence/core/constants/app_constants.dart';
@@ -21,6 +22,16 @@ void _stubAudioplayers() {
       (call) async => null,
     );
   }
+  // Without this, _initAudio() dies on getTemporaryDirectory() before ever
+  // calling native init — the engine still works (catch branch) but the
+  // native pool stays _ready=false and swallows every channel call, so
+  // tests that assert on what reaches the native side capture nothing.
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/path_provider'),
+    (call) async => call.method == 'getTemporaryDirectory'
+        ? Directory.systemTemp.createTempSync('cadence_test').path
+        : null,
+  );
 }
 
 // Await the fire-and-forget _initAudio() — it emits isAudioReady=true whether
@@ -406,6 +417,169 @@ void main() {
       subB.cancel();
       expect(a.any((s) => s.bpm == 77), isTrue);
       expect(b.any((s) => s.bpm == 77), isTrue);
+    });
+  });
+
+  // ── piece mode: super-pattern contract ─────────────────────────────────────
+  //
+  // The whole roadmap must be baked into ONE native start() push — section
+  // transitions must produce zero channel traffic (the old per-boundary
+  // updatePattern raced the native clock: boundary downbeats double-fired
+  // and audio drifted from the measure counter that drives page turns).
+
+  group('piece super-pattern', () {
+    late List<MethodCall> nativeCalls;
+
+    setUp(() {
+      nativeCalls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('cadence/metronome'),
+              (call) async {
+        nativeCalls.add(call);
+        return null;
+      });
+    });
+
+    tearDown(() {
+      // Restore the inert stub for other groups.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+              const MethodChannel('cadence/metronome'), (call) async => null);
+    });
+
+    List<Map<dynamic, dynamic>> ticksOfStart() {
+      final start = nativeCalls.singleWhere((c) => c.method == 'start');
+      final args = start.arguments as Map;
+      return (args['ticks'] as List).cast<Map<dynamic, dynamic>>();
+    }
+
+    test('whole roadmap pushed in one start; tempo encoded as scaling',
+        () async {
+      engine.start(sections: [
+        SectionConfig(
+          startMeasure: 1,
+          endMeasure: 2,
+          bpm: 120,
+          timeSignature: MetronomeTimeSignature.sig4_4,
+          subdivision: MetronomeSubdivision.quarter,
+        ),
+        SectionConfig(
+          startMeasure: 3,
+          endMeasure: 4,
+          bpm: 240, // double tempo → multipliers halved against ref 120
+          timeSignature: MetronomeTimeSignature.sig3_4,
+          subdivision: MetronomeSubdivision.quarter,
+        ),
+      ]);
+      await Future.delayed(Duration.zero); // flush the channel microtask
+
+      final ticks = ticksOfStart();
+      // 2 measures × 4 ticks + 2 measures × 3 ticks + terminal silence.
+      expect(ticks.length, 8 + 6 + 1);
+      for (var i = 0; i < 8; i++) {
+        expect(ticks[i]['multiplier'], closeTo(1.0, 1e-9),
+            reason: 'section 0 plays at the reference tempo unscaled');
+      }
+      for (var i = 8; i < 14; i++) {
+        expect(ticks[i]['multiplier'], closeTo(0.5, 1e-9),
+            reason: '240 BPM against ref 120 scales multipliers by 0.5');
+      }
+      // Terminal tick: silent, effectively eternal, so the native loop can
+      // never wrap back to measure 1 before Dart's stop() lands.
+      expect(ticks.last['volume'], 0.0);
+      expect(ticks.last['multiplier'], greaterThan(1e5));
+      // Downbeats where measures start (accent defaults on).
+      for (final d in [0, 4, 8, 11]) {
+        expect(ticks[d]['sound'], 'downbeat', reason: 'tick $d is a downbeat');
+      }
+      engine.stop();
+    });
+
+    test('count-in prepends one extra measure of section 0', () async {
+      engine.start(
+        sections: [
+          SectionConfig(
+            startMeasure: 1,
+            endMeasure: 1,
+            bpm: 120,
+            timeSignature: MetronomeTimeSignature.sig4_4,
+            subdivision: MetronomeSubdivision.quarter,
+          ),
+        ],
+        countIn: true,
+      );
+      await Future.delayed(Duration.zero); // flush the channel microtask
+      // count-in measure + real measure + terminal tick
+      expect(ticksOfStart().length, 4 + 4 + 1);
+      engine.stop();
+    });
+
+    test('section transitions produce zero mid-piece channel traffic',
+        () async {
+      var complete = false;
+      var changedTo = -1;
+      engine.onPieceComplete = () => complete = true;
+      engine.onSectionChanged = (i) => changedTo = i;
+      engine.start(sections: [
+        SectionConfig(
+          startMeasure: 1,
+          endMeasure: 1,
+          bpm: AppConstants.maxBpm,
+          timeSignature: MetronomeTimeSignature.sig2_4,
+          subdivision: MetronomeSubdivision.quarter,
+          accentFirstBeat: false,
+        ),
+        SectionConfig(
+          startMeasure: 2,
+          endMeasure: 2,
+          bpm: AppConstants.maxBpm,
+          timeSignature: MetronomeTimeSignature.sig3_4,
+          subdivision: MetronomeSubdivision.quarter,
+        ),
+      ]);
+
+      for (var i = 0; i < 40 && !complete; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      expect(changedTo, 1, reason: 'must have reached section 2');
+      expect(complete, isTrue,
+          reason: 'mixed-signature piece must complete (measure boundaries '
+              'must respect each section\'s own pattern length)');
+      expect(nativeCalls.where((c) => c.method == 'updatePattern'), isEmpty,
+          reason: 'transitions are baked into the pattern — any '
+              'updatePattern mid-piece resurrects the boundary-stutter bug');
+    });
+
+    test('state bpm shows the active section\'s own tempo', () async {
+      final states = <MetronomeState>[];
+      final sub = engine.stateStream.listen(states.add);
+      var complete = false;
+      engine.onPieceComplete = () => complete = true;
+      engine.start(sections: [
+        SectionConfig(
+          startMeasure: 1,
+          endMeasure: 1,
+          bpm: AppConstants.maxBpm,
+          timeSignature: MetronomeTimeSignature.sig1_4,
+          subdivision: MetronomeSubdivision.quarter,
+        ),
+        SectionConfig(
+          startMeasure: 2,
+          endMeasure: 2,
+          bpm: 150,
+          timeSignature: MetronomeTimeSignature.sig1_4,
+          subdivision: MetronomeSubdivision.quarter,
+        ),
+      ]);
+      for (var i = 0; i < 40 && !complete; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      await sub.cancel();
+      expect(states.any((s) => s.bpm == AppConstants.maxBpm), isTrue,
+          reason: 'section 1 tempo shown while section 1 plays');
+      expect(states.any((s) => s.bpm == 150), isTrue,
+          reason: 'display tempo must follow the section, not the '
+              'scaling-reference BPM');
     });
   });
 

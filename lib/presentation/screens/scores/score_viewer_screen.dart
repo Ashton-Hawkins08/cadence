@@ -146,11 +146,16 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
       }
     }
     if (active == null || active.pageIndex == _lastAutoPage) return;
+    // Only record the trigger as handled once the flip can actually be
+    // performed — recording it while the controller is detached would
+    // swallow the turn forever (the next emissions all short-circuit above).
+    if (!_pageCtrl.hasClients) return;
     _lastAutoPage = active.pageIndex;
 
-    if (_pageCtrl.hasClients &&
-        _pageCtrl.page?.round() != active.pageIndex &&
-        _sheetVisible) {
+    // The PageView stays mounted (Offstage) while the sheet is hidden, so
+    // this also tracks position in hidden mode — re-showing the sheet lands
+    // on the correct page.
+    if (_pageCtrl.page?.round() != active.pageIndex) {
       _pageCtrl.animateToPage(
         active.pageIndex,
         duration: const Duration(milliseconds: 300),
@@ -269,13 +274,24 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
           return Column(
             children: [
               Expanded(
-                child: _sheetVisible
-                    ? _buildSheetView(pages, isDark)
-                    : _MiniDashboard(
+                // The PageView must stay mounted while the sheet is hidden:
+                // removing it detaches the controller, which loses the
+                // current position AND makes auto page turns silently no-op
+                // in dashboard mode. Offstage keeps it alive and tracking.
+                child: Stack(
+                  children: [
+                    Offstage(
+                      offstage: !_sheetVisible,
+                      child: _buildSheetView(pages, isDark),
+                    ),
+                    if (!_sheetVisible)
+                      _MiniDashboard(
                         stateAsync: stateAsync,
                         isDark: isDark,
                         linkedPiece: widget.folder.linkedPieceId != null,
                       ),
+                  ],
+                ),
               ),
               if (_drawMode && _sheetVisible)
                 _AnnotationToolbar(

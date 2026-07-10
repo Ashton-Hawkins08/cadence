@@ -21,6 +21,7 @@ class PiecePlayerScreen extends ConsumerStatefulWidget {
 class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
     with SingleTickerProviderStateMixin {
   List<SectionConfig>? _configs;
+  bool _autoPlayScheduled = false;
   int _activeSectionIndex = 0;
   bool _complete = false;
   // One measure of the first section's signature/tempo before measure 1 —
@@ -98,9 +99,28 @@ class _PiecePlayerScreenState extends ConsumerState<PiecePlayerScreen>
           body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
       data: (sections) {
-        if (_configs == null && sections.isNotEmpty) {
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) {
+        if (!_autoPlayScheduled && sections.isNotEmpty) {
+          // Flag set synchronously: rebuilds during the push transition must
+          // not queue duplicate auto-plays (each one restarts the engine).
+          _autoPlayScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            // Let the route transition finish before starting the engine —
+            // the native start handshake (audio route warm-up) lands on the
+            // platform thread and visibly stutters the push animation.
+            final anim = ModalRoute.of(context)?.animation;
+            if (anim != null && !anim.isCompleted) {
+              final done = Completer<void>();
+              void listener(AnimationStatus st) {
+                if (st == AnimationStatus.completed ||
+                    st == AnimationStatus.dismissed) {
+                  anim.removeStatusListener(listener);
+                  done.complete();
+                }
+              }
+
+              anim.addStatusListener(listener);
+              await done.future;
+            }
             if (mounted) _buildConfigsAndPlay(sections);
           });
         }

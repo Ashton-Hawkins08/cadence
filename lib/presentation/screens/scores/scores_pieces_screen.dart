@@ -297,7 +297,9 @@ class _ExerciseTile extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.menu_book_outlined),
                 title: const Text('Open Score'),
-                subtitle: const Text('Rehearsal canvas with annotations'),
+                subtitle: Text(piece != null
+                    ? 'Rehearsal canvas — plays the piece with auto page turns'
+                    : 'Rehearsal canvas with annotations'),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.push(
@@ -354,7 +356,10 @@ class _ExerciseTile extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.play_circle_outline),
                 title: const Text('Play Piece'),
-                subtitle: const Text('Metronome follows the section roadmap'),
+                subtitle: Text(folder != null
+                    ? 'Section roadmap dashboard — open the score instead '
+                        'for sheet music and page turns'
+                    : 'Metronome follows the section roadmap'),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.push(

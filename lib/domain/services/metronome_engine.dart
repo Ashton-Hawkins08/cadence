@@ -172,8 +172,11 @@ class _NativePool {
     _ch.invokeMethod<void>('setBpm', {'bpm': bpm});
   }
 
-  // updatePattern: used for section transitions and time-sig / subdivision
-  // changes. Native resets to tick 0 and restarts the interval from now.
+  // updatePattern: swaps the tick pattern mid-play. Native resets its clock
+  // to NOW and clicks immediately — instant feedback for user setting
+  // changes. (Piece section transitions never go through here: the whole
+  // roadmap is baked into one pattern at start(), so there is nothing to
+  // swap mid-piece and no clock reset to race against.)
   void updatePattern(int bpm, List<Map<String, dynamic>> ticks) {
     if (!_ready) return;
     _ch.invokeMethod<void>('updatePattern', {'bpm': bpm, 'ticks': ticks});
@@ -215,9 +218,26 @@ class MetronomeEngine {
   int _currentMeasure = 1;
 
   // ── Piece mode ─────────────────────────────────────────────────────────────
+  //
+  // The whole roadmap (count-in + every measure of every section) is baked
+  // into ONE tick list pushed to the native thread at start() — the same
+  // technique the cognitive break uses for its super-pattern. The native
+  // clock never resets mid-piece and there is zero channel traffic at
+  // section boundaries, so transitions are seamless by construction.
+  // (The old design pushed updatePattern at each boundary; it raced the
+  // native scheduler — the boundary downbeat double-fired ("stutter") and
+  // the audio drifted from the Dart measure counter that drives page turns.)
+  //
+  // Tempo changes are encoded as multiplier scaling against the reference
+  // BPM (section 0's): interval = mult × 60000/bpm, so scaling a section's
+  // multipliers by refBpm/sectionBpm plays it at exactly sectionBpm while
+  // the native thread's bpm value never changes.
   List<SectionConfig>? _sections;
   int _sectionIndex = 0;
-  bool _pendingMeasureIncrement = false;
+  List<MetronomeTick> _piecePattern = const [];
+  // Cumulative tick counts at which a measure ends (piece mode only).
+  Set<int> _pieceBoundaries = const {};
+  int _pendingMeasureIncrements = 0;
   // Count-in: one measure of section 0's pattern played BEFORE the piece's
   // first measure. Implemented by starting _currentMeasure one below the
   // first section's startMeasure — the count-in measure is musically
@@ -343,10 +363,14 @@ class MetronomeEngine {
   // ── Public controls ────────────────────────────────────────────────────────
 
   // Builds the tick list sent to the native beat thread.
-  List<Map<String, dynamic>> _buildNativeTicks() {
-    return _pattern.map((tick) {
+  List<Map<String, dynamic>> _buildNativeTicks() =>
+      _nativeTicksFor(_pattern, _accentFirstBeat);
+
+  static List<Map<String, dynamic>> _nativeTicksFor(
+      List<MetronomeTick> pattern, bool accentFirstBeat) {
+    return pattern.map((tick) {
       BeatLevel effective = tick.level;
-      if (tick.level == BeatLevel.downbeat && !_accentFirstBeat) {
+      if (tick.level == BeatLevel.downbeat && !accentFirstBeat) {
         effective = BeatLevel.beat;
       }
       final String sound;
@@ -365,6 +389,56 @@ class MetronomeEngine {
         'volume': volume,
       };
     }).toList();
+  }
+
+  // ── Piece super-pattern ────────────────────────────────────────────────────
+
+  ({
+    List<MetronomeTick> pattern,
+    List<Map<String, dynamic>> native,
+    Set<int> boundaries,
+  }) _buildPieceSuperPattern(List<SectionConfig> sections, bool countIn) {
+    final refBpm =
+        sections[0].bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
+    final pat = <MetronomeTick>[];
+    final nat = <Map<String, dynamic>>[];
+    final bounds = <int>{};
+
+    void addMeasure(List<MetronomeTick> measure,
+        List<Map<String, dynamic>> measureNative, double scale) {
+      for (var i = 0; i < measure.length; i++) {
+        pat.add(MetronomeTick(
+            measure[i].quarterNoteMultiplier * scale, measure[i].level));
+        final n = Map<String, dynamic>.from(measureNative[i]);
+        n['multiplier'] = measure[i].quarterNoteMultiplier * scale;
+        nat.add(n);
+      }
+      bounds.add(pat.length);
+    }
+
+    for (var s = 0; s < sections.length; s++) {
+      final cfg = sections[s];
+      final measure = buildTickPattern(cfg.timeSignature, cfg.subdivision);
+      final measureNative = _nativeTicksFor(measure, cfg.accentFirstBeat);
+      final sectionBpm =
+          cfg.bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
+      final scale = refBpm / sectionBpm;
+      // The count-in is one extra measure of section 0, musically identical.
+      if (s == 0 && countIn) addMeasure(measure, measureNative, scale);
+      final measures = cfg.endMeasure - cfg.startMeasure + 1;
+      for (var m = 0; m < measures; m++) {
+        addMeasure(measure, measureNative, scale);
+      }
+    }
+
+    // Terminal tick: silent and effectively eternal. The native thread
+    // "plays" it at the piece-end deadline (inaudible) and schedules its
+    // next beat hours out; Dart detects completion at that same boundary
+    // and stops the thread milliseconds later. Without it the native
+    // pattern would loop back to measure 1 in the gap before stop() lands.
+    pat.add(const MetronomeTick(1000000.0, BeatLevel.subdivision));
+    nat.add({'sound': 'sub', 'multiplier': 1000000.0, 'volume': 0.0});
+    return (pattern: pat, native: nat, boundaries: bounds);
   }
 
   // ── Cognitive break ────────────────────────────────────────────────────────
@@ -467,20 +541,38 @@ class MetronomeEngine {
     _emit();
   }
 
-  // The pattern/measure the timing loop actually walks: the varied
-  // super-pattern during a break, the plain single measure otherwise.
-  List<MetronomeTick> get _livePattern =>
-      _cognitiveActive ? _cbPattern : _pattern;
+  // The pattern the timing loop actually walks: the entire piece in piece
+  // mode, the varied super-pattern during a break, the plain single measure
+  // otherwise.
+  List<MetronomeTick> get _livePattern => _sections != null
+      ? _piecePattern
+      : (_cognitiveActive ? _cbPattern : _pattern);
   int get _liveMeasureLen =>
       _cognitiveActive ? _cbMeasureLen : _pattern.length;
+
+  // Whether a measure ends after [ticksSoFar] ticks have fired. In piece
+  // mode measures have varying lengths (per-section signatures), so the
+  // boundary positions are precomputed; elsewhere every _liveMeasureLen-th
+  // tick ends a measure.
+  bool _measureBoundaryAt(int ticksSoFar) => _sections != null
+      ? _pieceBoundaries.contains(ticksSoFar)
+      : ticksSoFar % _liveMeasureLen == 0;
 
   void start({List<SectionConfig>? sections, bool countIn = false}) {
     if (_isPlaying) stop();
     _sections = sections;
     _sectionIndex = 0;
     final hasSections = sections != null && sections.isNotEmpty;
+    List<Map<String, dynamic>>? pieceNative;
     if (hasSections) {
       _applySectionConfig(sections[0]);
+      // Reference BPM for all interval math; sections play at their own
+      // tempo via multiplier scaling (see _buildPieceSuperPattern).
+      _bpm = sections[0].bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
+      final built = _buildPieceSuperPattern(sections, countIn);
+      _piecePattern = built.pattern;
+      _pieceBoundaries = built.boundaries;
+      pieceNative = built.native;
     }
     _isPlaying = true;
     _isPaused = false;
@@ -493,7 +585,7 @@ class MetronomeEngine {
     // startMeasure and the piece proper begins.
     _currentMeasure =
         _countInActive ? sections![0].startMeasure - 1 : 1;
-    _pendingMeasureIncrement = false;
+    _pendingMeasureIncrements = 0;
     _stopwatch.reset();
     _stopwatch.start();
     _nextBeatMs = 0.0;
@@ -507,7 +599,7 @@ class MetronomeEngine {
       // hardcoded per-device guess needed.
       _emit(); // show playing state immediately so the UI switches to stop btn
       final epoch = ++_startEpoch;
-      _native.start(_bpm, _buildNativeTicks()).then((_) {
+      _native.start(_bpm, pieceNative ?? _buildNativeTicks()).then((_) {
         if (!_isPlaying || _startEpoch != epoch) return; // superseded or stopped
         // Anchor _nextBeatMs to current elapsed time so that:
         //   (a) visual beat 0 fires right now (no extra 4 ms poll lag), and
@@ -550,8 +642,10 @@ class MetronomeEngine {
     _firedTickIndex = 0;
     _visualBeatIndex = 0;
     _currentMeasure = 1;
-    _pendingMeasureIncrement = false;
+    _pendingMeasureIncrements = 0;
     _sections = null;
+    _piecePattern = const [];
+    _pieceBoundaries = const {};
     _countInActive = false;
     _tapTimes.clear();
     _emit();
@@ -580,6 +674,9 @@ class MetronomeEngine {
   }
 
   void setBpm(int bpm) {
+    // In piece mode the roadmap owns tempo — _bpm is the reference the whole
+    // super-pattern's multipliers were scaled against and must not move.
+    if (_sections != null) return;
     _bpm = bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
     if (_usesNativeTiming) {
       _native.setBpm(_bpm);
@@ -652,7 +749,17 @@ class MetronomeEngine {
     }
   }
 
-  int get bpm => _bpm;
+  // In piece mode _bpm is the scaling reference; the tempo the user should
+  // SEE is the active section's own.
+  int get _uiBpm {
+    final s = _sections;
+    if (s != null && s.isNotEmpty && _sectionIndex < s.length) {
+      return s[_sectionIndex].bpm;
+    }
+    return _bpm;
+  }
+
+  int get bpm => _uiBpm;
   MetronomeTimeSignature get timeSignature => _timeSignature;
   MetronomeSubdivision get subdivision => _subdivision;
   bool get accentFirstBeat => _accentFirstBeat;
@@ -680,10 +787,13 @@ class MetronomeEngine {
 
   void _fireBeat(double nowMs) {
     // Measure increments at the downbeat so the display shows the correct
-    // measure number while it is playing.
-    if (_pendingMeasureIncrement) {
+    // measure number while it is playing. A counter (not a flag) so that a
+    // long event-loop stall spanning multiple measure boundaries cannot
+    // lose increments — the measure display, section transitions, and page
+    // turns would otherwise lag the audio for the rest of the piece.
+    while (_pendingMeasureIncrements > 0) {
+      _pendingMeasureIncrements--;
       _currentMeasure++;
-      _pendingMeasureIncrement = false;
       // The count-in ends the moment the measure counter reaches the piece's
       // first real measure.
       if (_countInActive) {
@@ -715,12 +825,11 @@ class MetronomeEngine {
     }
 
     _tickIndex++;
-    // A measure ends every _liveMeasureLen ticks. For the normal pattern
-    // that is exactly the pattern length (unchanged behavior); inside a
-    // super-pattern it marks each embedded measure.
-    final measureBoundary = _tickIndex % _liveMeasureLen == 0;
+    // Boundary check happens on the un-wrapped index: piece boundaries are
+    // cumulative positions in the full-piece pattern.
+    final measureBoundary = _measureBoundaryAt(_tickIndex);
     if (_tickIndex >= pattern.length) _tickIndex = 0;
-    if (measureBoundary) _pendingMeasureIncrement = true;
+    if (measureBoundary) _pendingMeasureIncrements++;
 
     _firedTickIndex = firedIndex;
     _nextBeatMs += intervalMs;
@@ -749,9 +858,9 @@ class MetronomeEngine {
         }
         _nextBeatMs += skipped.quarterNoteMultiplier * (60000.0 / _bpm);
         _tickIndex++;
-        final skippedBoundary = _tickIndex % _liveMeasureLen == 0;
+        final skippedBoundary = _measureBoundaryAt(_tickIndex);
         if (_tickIndex >= pattern.length) _tickIndex = 0;
-        if (skippedBoundary) _pendingMeasureIncrement = true;
+        if (skippedBoundary) _pendingMeasureIncrements++;
       }
     } else {
       if (nowMs >= _nextBeatMs) {
@@ -780,19 +889,16 @@ class MetronomeEngine {
     }
   }
 
+  // Display-only: the audible pattern for the whole piece was baked at
+  // start(), so a section transition changes what the UI shows (signature,
+  // subdivision, beat-dot count) — never the clocks. _bpm (the reference all
+  // multipliers were scaled against) and _tickIndex (the absolute position
+  // in the full-piece pattern) must not be touched here.
   void _applySectionConfig(SectionConfig cfg) {
-    _endCognitiveBreak(restoreNative: false);
-    _bpm = cfg.bpm.clamp(AppConstants.minBpm, AppConstants.maxBpm);
     _timeSignature = cfg.timeSignature;
     _subdivision = cfg.subdivision;
     _accentFirstBeat = cfg.accentFirstBeat;
     _rebuildPattern();
-    _tickIndex = 0;
-    _visualBeatIndex = 0;
-    // Push new pattern to native thread; it resets its tick index atomically.
-    if (_usesNativeTiming) {
-      _native.updatePattern(_bpm, _buildNativeTicks());
-    }
   }
 
   void _playTick(BeatLevel level, {int tickIndex = -1}) {
@@ -823,7 +929,7 @@ class MetronomeEngine {
       isPlaying: _isPlaying,
       isPaused: _isPaused,
       isAudioReady: _audioReady,
-      bpm: _bpm,
+      bpm: _uiBpm,
       timeSignature: _timeSignature,
       subdivision: _subdivision,
       accentFirstBeat: _accentFirstBeat,
