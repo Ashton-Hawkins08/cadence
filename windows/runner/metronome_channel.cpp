@@ -11,6 +11,9 @@ std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
 
 HWAVEOUT                         MetronomeChannel::s_hWaveOut{nullptr};
 std::map<std::string, MetronomeChannel::WavSound> MetronomeChannel::s_wavSounds;
+HWAVEOUT          MetronomeChannel::s_hKeepAlive{nullptr};
+std::vector<char> MetronomeChannel::s_keepAlivePcm;
+WAVEHDR           MetronomeChannel::s_keepAliveHdr{};
 
 std::thread       MetronomeChannel::s_beatThread;
 std::atomic<bool> MetronomeChannel::s_running{false};
@@ -135,36 +138,56 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
     waveOutWrite(s_hWaveOut, &hdr, sizeof(WAVEHDR));
 }
 
-// Pushes silence through the device and BLOCKS until it has drained.
+// Starts the permanent silent keep-alive stream (see header comment).
 //
-// Two reasons this exists (and why init-time warm-up alone was not enough):
-//   1. The Windows shared-mode audio engine spins its render route down after
-//      a stretch of silence. The first waveOutWrite of a session then pays a
-//      route-restart cost of tens of ms — all of it landing on beat 0, which
-//      audibly shortens the beat0→beat1 gap ("clustered" start). Warming at
-//      init only absorbs this once; every start/resume needs it.
-//   2. waveOut plays queued buffers SEQUENTIALLY. If beat 0 is written while
-//      warm-up silence is still draining, beat 0 starts late by the silence
-//      remainder. So the warm-up must finish before the beat thread launches
-//      — hence the drain wait.
-//
-// Runs on the platform thread; worst case (cold route) is ~40-100 ms once per
-// user tap of play/resume, well below perceptible tap-to-sound delay.
-void MetronomeChannel::WarmupAudioRoute() {
-  PlayPcm("_warmup");
-  for (int waited = 0; waited < 150; waited += 2) {
-    bool draining = false;
-    {
-      std::lock_guard<std::mutex> lk(s_wavMutex);
-      auto it = s_wavSounds.find("_warmup");
-      if (it == s_wavSounds.end()) return;
-      for (const auto& hdr : it->second.hdrs) {
-        if (hdr.dwFlags & WHDR_INQUEUE) { draining = true; break; }
-      }
-    }
-    if (!draining) return;
-    Sleep(2);
+// This replaces the old WarmupAudioRoute() drain-wait: warming the route on
+// every start/resume fixed the beat-SPACING problem (beat 0 no longer paid
+// the route-restart spike relative to beat 1) but moved the cost to
+// TAP-TO-SOUND — the platform thread blocked up to ~150 ms before the beat
+// thread even launched, so beat 1 audibly lagged the button press. With the
+// route held permanently open there is nothing to warm: beat 0 fires within
+// a few ms of the tap, on a hot path, every time.
+void MetronomeChannel::StartKeepAliveLoop() {
+  if (s_hKeepAlive) return;
+
+  WAVEFORMATEX wfx{};
+  wfx.wFormatTag      = WAVE_FORMAT_PCM;
+  wfx.nChannels       = 1;
+  wfx.nSamplesPerSec  = 22050;
+  wfx.wBitsPerSample  = 16;
+  wfx.nBlockAlign     = 2;
+  wfx.nAvgBytesPerSec = 44100;
+  if (waveOutOpen(&s_hKeepAlive, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL)
+          != MMSYSERR_NOERROR) {
+    s_hKeepAlive = nullptr; // no keep-alive; clicks still work (cold starts)
+    return;
   }
+
+  // 500 ms of silence (0.5 s × 22050 Hz × 2 bytes), looped forever.
+  s_keepAlivePcm.assign(22050, 0);
+  ZeroMemory(&s_keepAliveHdr, sizeof(WAVEHDR));
+  s_keepAliveHdr.lpData         = s_keepAlivePcm.data();
+  s_keepAliveHdr.dwBufferLength = static_cast<DWORD>(s_keepAlivePcm.size());
+  // dwFlags must be clear for Prepare; loop flags are OR'd in afterwards
+  // (the documented order for looping buffers).
+  if (waveOutPrepareHeader(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR))
+          != MMSYSERR_NOERROR) {
+    waveOutClose(s_hKeepAlive);
+    s_hKeepAlive = nullptr;
+    return;
+  }
+  s_keepAliveHdr.dwFlags |= WHDR_BEGINLOOP | WHDR_ENDLOOP;
+  s_keepAliveHdr.dwLoops  = 0xFFFFFFFF;
+  waveOutWrite(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR));
+}
+
+void MetronomeChannel::StopKeepAliveLoop() {
+  if (!s_hKeepAlive) return;
+  waveOutReset(s_hKeepAlive);
+  waveOutUnprepareHeader(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR));
+  waveOutClose(s_hKeepAlive);
+  s_hKeepAlive = nullptr;
+  s_keepAlivePcm.clear();
 }
 
 // ── Beat thread ───────────────────────────────────────────────────────────────
@@ -308,6 +331,7 @@ void MetronomeChannel::HandleMethodCall(
   // ── init: load WAV files and open waveOut device ──────────────────────────
   if (method == "init") {
     StopBeatThread();
+    StopKeepAliveLoop();
     CloseWaveOut();
     s_wavSounds.clear();
 
@@ -339,15 +363,10 @@ void MetronomeChannel::HandleMethodCall(
         }
       }
 
-      // Register the warm-up silence buffer. WarmupAudioRoute() pushes it
-      // through the device at init AND at every start/resume — see its
-      // comment for why once at init is not enough.
-      {
-        WavSound silence;
-        silence.pcm.assign(22050 * 2 * 40 / 1000, 0); // 40 ms @ 22.05k s16
-        s_wavSounds["_warmup"] = std::move(silence);
-      }
-      WarmupAudioRoute();
+      // Hold the render route open for the app's lifetime — no click ever
+      // pays a route-restart spike, and start/resume need no blocking
+      // warm-up (see StartKeepAliveLoop).
+      StartKeepAliveLoop();
     }
     result->Success();
 
@@ -373,9 +392,8 @@ void MetronomeChannel::HandleMethodCall(
       }
     }
     s_resetRequested.store(false, std::memory_order_release);
-    // Re-warm the render route so beat 0's click sees the same (hot) path
-    // latency as every later click — the whole point of native timing.
-    WarmupAudioRoute();
+    // Route is already hot (keep-alive stream) — launch the thread
+    // immediately so beat 0 lands within a few ms of the tap.
     StartBeatThread();
     result->Success();
 
@@ -390,10 +408,7 @@ void MetronomeChannel::HandleMethodCall(
     result->Success();
 
   } else if (method == "resume") {
-    // Warm BEFORE unpausing: the beat thread is still counting this as
-    // paused time, so the pause-offset arithmetic absorbs the warm-up wait
-    // and the first resumed beat fires on a hot route at the right instant.
-    WarmupAudioRoute();
+    // Route is held hot by the keep-alive stream — just unpause.
     s_paused.store(false, std::memory_order_release);
     result->Success();
 
@@ -438,6 +453,7 @@ void MetronomeChannel::HandleMethodCall(
   // ── dispose ───────────────────────────────────────────────────────────────
   } else if (method == "dispose") {
     StopBeatThread();
+    StopKeepAliveLoop();
     CloseWaveOut();
     s_wavSounds.clear();
     result->Success();
