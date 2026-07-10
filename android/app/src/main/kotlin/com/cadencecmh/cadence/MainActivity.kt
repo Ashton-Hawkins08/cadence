@@ -44,30 +44,95 @@ class MainActivity : FlutterActivity() {
 
     // Called from the beat thread (URGENT_AUDIO priority).
     private fun playClick(name: String, volume: Float) {
-        val pool  = clickPools[name] ?: return
-        val track = pool.tracks[pool.idx.getAndIncrement() and (POOL_SIZE - 1)]
-        try {
-            // stop() is a no-op if already stopped (normal case).
-            track.stop()
-            // reloadStaticData() is the documented idiom for replaying a
-            // MODE_STATIC buffer: resets position to 0 atomically.
-            // setPlaybackHeadPosition(0) can silently return
-            // ERROR_INVALID_OPERATION on some OEM audio stacks when the
-            // track is in a transitional state, leaving the play head at
-            // the end of the buffer so play() produces no audio.
-            track.reloadStaticData()
-            track.setVolume(volume)
-            track.play()
-        } catch (_: Exception) {
-            // Swallow any AudioTrack state-machine exception so it cannot
-            // propagate up through runBeatLoop() and silently kill the thread,
-            // which would cause every subsequent beat to be dropped.
+        val pool = clickPools[name] ?: return
+        // A track can wedge in a transitional state on some OEM audio stacks:
+        // stop()/reloadStaticData()/play() throws, or reload reports an error
+        // and play() produces silence. Retrying once on the NEXT pool track
+        // turns a silently dropped beat into a played one — the pool is 4
+        // deep, so the retry track has been idle for ≥ 3 intervals.
+        repeat(2) {
+            val track = pool.tracks[pool.idx.getAndIncrement() and (POOL_SIZE - 1)]
+            try {
+                // stop() is a no-op if already stopped (normal case).
+                track.stop()
+                // reloadStaticData() is the documented idiom for replaying a
+                // MODE_STATIC buffer: resets position to 0 atomically.
+                // setPlaybackHeadPosition(0) can silently return
+                // ERROR_INVALID_OPERATION on some OEM audio stacks when the
+                // track is in a transitional state, leaving the play head at
+                // the end of the buffer so play() produces no audio.
+                if (track.reloadStaticData() == AudioTrack.SUCCESS) {
+                    track.setVolume(volume)
+                    track.play()
+                    return
+                }
+            } catch (_: Exception) {
+                // Fall through to the retry track. Never let an AudioTrack
+                // state-machine exception propagate up through runBeatLoop()
+                // and kill the thread (which would drop every later beat).
+            }
         }
     }
 
     private fun releaseClickPools() {
         clickPools.values.forEach { pool -> pool.tracks.forEach { it.release() } }
         clickPools.clear()
+    }
+
+    // ── Silent keep-alive stream ───────────────────────────────────────────────
+    //
+    // A metronome is silent ~97% of the time (12 ms clicks, 500 ms apart), so
+    // between clicks the audio output idles. Two real-world consequences:
+    //   1. The mixer/HAL route can drop into standby, and the next click pays
+    //      a route-restart latency spike — the "first beat is late" symptom,
+    //      and audible jitter after any silence.
+    //   2. OEM power managers (Samsung especially) classify the app as NOT
+    //      playing media, and freeze it when the screen turns off — even with
+    //      a foreground service and a partial wake lock. That is the
+    //      "screen blacks out → missing beats → dies" progression.
+    //
+    // Fix: while the engine is alive, loop a track of ±1 LSB dither
+    // (−90 dBFS, physically inaudible) so the audio stack always has an
+    // active, non-silent playback session for this app. This is the same
+    // technique mainstream metronome/practice apps use.
+    private var keepAliveTrack: AudioTrack? = null
+
+    private fun buildKeepAliveTrack(): AudioTrack {
+        val sampleRate = 22050
+        val pcm = ShortArray(sampleRate) // 1 s, looped forever
+        // Sparse ±1 LSB pulses: nonzero so no layer can classify the stream
+        // as silence and idle it, far below any audible or dither floor.
+        var flip: Short = 1
+        for (i in pcm.indices step 64) {
+            pcm[i] = flip
+            flip = (-flip).toShort()
+        }
+        val track = buildAudioTrack(pcm)
+        track.setLoopPoints(0, pcm.size, -1)
+        return track
+    }
+
+    private fun startKeepAlive() {
+        try {
+            val t = keepAliveTrack ?: return
+            if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
+        } catch (_: Exception) {
+            // An app-freeze while idle can invalidate the track outright
+            // (AudioFlinger reclaims it; play() then throws). Rebuild once —
+            // keep-alive is best-effort beyond that.
+            try {
+                keepAliveTrack?.release()
+                keepAliveTrack = buildKeepAliveTrack()
+                keepAliveTrack?.play()
+            } catch (_: Exception) {
+                keepAliveTrack = null
+            }
+        }
+    }
+
+    private fun releaseKeepAlive() {
+        try { keepAliveTrack?.release() } catch (_: Exception) {}
+        keepAliveTrack = null
     }
 
     // ── Beat thread ────────────────────────────────────────────────────────────
@@ -106,15 +171,7 @@ class MainActivity : FlutterActivity() {
                     "init" -> {
                         stopBeatThread()
                         releaseClickPools()
-
-                        // Start foreground service: keeps the process alive when
-                        // screen is off and holds a partial wake lock.
-                        val svc = Intent(this@MainActivity, MetronomeService::class.java)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(svc)
-                        } else {
-                            startService(svc)
-                        }
+                        releaseKeepAlive()
 
                         @Suppress("UNCHECKED_CAST")
                         val paths = call.arguments as Map<String, String>
@@ -137,16 +194,36 @@ class MainActivity : FlutterActivity() {
                                     t.play()
                                 }
                             }
+                            // Keep the mixer route hot for the engine's whole
+                            // lifetime — see buildKeepAliveTrack() for why.
+                            keepAliveTrack = buildKeepAliveTrack()
+                            startKeepAlive()
                             result.success(null)
                         } catch (e: Exception) {
                             releaseClickPools()
-                            stopService(Intent(this@MainActivity, MetronomeService::class.java))
+                            releaseKeepAlive()
                             result.error("INIT_FAILED", e.message, null)
                         }
                     }
 
                     // ── start: launch native beat thread ───────────────────
                     "start" -> {
+                        // Foreground service + partial wake lock for exactly as
+                        // long as the metronome plays: keeps the process and
+                        // CPU alive with the screen off, and scopes the
+                        // "Metronome is running" notification to actual
+                        // playback (a long-lived idle foreground service is
+                        // both a UX wart and an OEM kill-list magnet).
+                        val svc = Intent(this@MainActivity, MetronomeService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(svc)
+                        } else {
+                            startService(svc)
+                        }
+                        // Re-arm the keep-alive in case the OS reclaimed it
+                        // while the app sat idle.
+                        startKeepAlive()
+
                         @Suppress("UNCHECKED_CAST")
                         val args = call.arguments as Map<String, Any>
                         currentBpm   = (args["bpm"] as Number).toInt()
@@ -163,6 +240,7 @@ class MainActivity : FlutterActivity() {
                     // ── stop ───────────────────────────────────────────────
                     "stop" -> {
                         stopBeatThread()
+                        stopService(Intent(this@MainActivity, MetronomeService::class.java))
                         // If start() never got to fire its first beat before
                         // stop() arrived, resolve it now so Dart's await
                         // doesn't hang.
@@ -196,6 +274,7 @@ class MainActivity : FlutterActivity() {
                     "dispose" -> {
                         stopBeatThread()
                         releaseClickPools()
+                        releaseKeepAlive()
                         stopService(Intent(this@MainActivity, MetronomeService::class.java))
                         result.success(null)
                     }
@@ -330,7 +409,16 @@ class MainActivity : FlutterActivity() {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
         }
 
-        var nextBeatNs = System.nanoTime()
+        // Pre-roll: schedule beat 0 a hair into the future instead of NOW.
+        // If the output route was cold (first session, process thawed after
+        // an app freeze, audio device just switched), the keep-alive stream
+        // kicked off in the "start" handler needs a few tens of ms to open
+        // the route — firing beat 0 into a still-opening route is exactly
+        // the "first beat comes late" symptom, because the spike delays
+        // beat 0's audio but not beat 1's. 50 ms of tap-to-sound delay is
+        // imperceptible; Dart's visual timer anchors to the actual beat-0
+        // fire (pendingStartResult), so visuals stay in sync automatically.
+        var nextBeatNs = System.nanoTime() + 50_000_000L
         var pausedAtNs = 0L
         var localTickIdx = 0
 
