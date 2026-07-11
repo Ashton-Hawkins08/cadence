@@ -601,19 +601,26 @@ class MetronomeEngine {
       final epoch = ++_startEpoch;
       _native.start(_bpm, pieceNative ?? _buildNativeTicks()).then((_) {
         if (!_isPlaying || _startEpoch != epoch) return; // superseded or stopped
-        // Anchor _nextBeatMs to current elapsed time so that:
-        //   (a) visual beat 0 fires right now (no extra 4 ms poll lag), and
-        //   (b) every subsequent _nextBeatMs = nowMs + n*intervalMs, keeping
-        //       the visual-to-visual gap exactly intervalMs regardless of how
-        //       long the channel round-trip took.
+        // Anchor the visual clock to the native audio clock.
+        //
+        // Android resolves this Future the moment native beat 0 FIRES (the
+        // pending-result trick in MainActivity), so "now" IS beat 0 there.
+        // Windows resolves it at beat-thread launch, and the thread then
+        // pre-rolls beat 0 by kStartPreRollMs = 50 ms while a silence
+        // write primes the click stream (metronome_channel.cpp
+        // RunBeatLoop) — so the visual anchor must carry the same offset
+        // or every flash leads the audio by 50 ms.
         final nowMs = _stopwatch.elapsedMicroseconds / 1000.0;
-        _nextBeatMs = nowMs;
+        final preRollMs = Platform.isWindows ? 50.0 : 0.0;
+        _nextBeatMs = nowMs + preRollMs;
         // pause() can land before this handshake resolves. Don't flash a
         // visual beat (or emit state) while paused — the anchored
         // _nextBeatMs makes beat 0 fire on the first post-resume poll, and
         // resume() owns timer creation for that case.
         if (_isPaused) return;
-        _fireBeat(nowMs);
+        // With a pre-roll, beat 0 belongs to the poll loop (fires when the
+        // clock reaches the anchor); without one it fires right now.
+        if (preRollMs == 0.0) _fireBeat(nowMs);
         // A resume() racing ahead of this callback may have already started
         // a poll timer — cancel it so exactly one timer ever runs.
         _timer?.cancel();

@@ -212,11 +212,26 @@ void MetronomeChannel::RunBeatLoop() {
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
 
+  // Prime the click stream, then pre-roll beat 0.
+  //
+  // The keep-alive loop holds the shared-mode RENDER ROUTE open, but the
+  // click handle's own stream still idles between sessions, and the first
+  // waveOutWrite on an idle stream pays a priming latency that later
+  // writes don't. If beat 0 takes that hit, it is HEARD late while beat 1
+  // is on time — the "clustered start". So: pay the priming cost on
+  // silence, and schedule beat 0 far enough out (kStartPreRollMs) that the
+  // prime has finished by then. Dart mirrors the same constant when
+  // anchoring its visual timer (metronome_engine.dart start()).
+  constexpr LONGLONG kStartPreRollMs = 50;
+  PlayPcm("_prime");
+
   LARGE_INTEGER nextBeat;
   QueryPerformanceCounter(&nextBeat);
+  nextBeat.QuadPart += (freq.QuadPart * kStartPreRollMs) / 1000;
 
   LARGE_INTEGER pausedAt = {};
   bool wasPaused = false;
+  int pausePings = 0;
 
   size_t localTickIdx = 0;
 
@@ -228,8 +243,16 @@ void MetronomeChannel::RunBeatLoop() {
       if (!wasPaused) {
         QueryPerformanceCounter(&pausedAt);
         wasPaused = true;
+        pausePings = 0;
       }
       Sleep(4);
+      // Ping silence through the click stream every ~1.5 s of pause so it
+      // never idles — the first resumed beat then plays on a warm stream
+      // with no priming spike (resume has no pre-roll to hide one in).
+      if (++pausePings >= 375) {
+        pausePings = 0;
+        PlayPcm("_prime");
+      }
       if (!s_running.load(std::memory_order_relaxed)) break;
       continue;
     }
@@ -363,6 +386,13 @@ void MetronomeChannel::HandleMethodCall(
         }
       }
 
+      // 10 ms of silence used to prime the click stream (see RunBeatLoop)
+      // and to keep it warm across pauses.
+      {
+        WavSound prime;
+        prime.pcm.assign(22050 * 2 * 10 / 1000, 0);
+        s_wavSounds["_prime"] = std::move(prime);
+      }
       // Hold the render route open for the app's lifetime — no click ever
       // pays a route-restart spike, and start/resume need no blocking
       // warm-up (see StartKeepAliveLoop).
