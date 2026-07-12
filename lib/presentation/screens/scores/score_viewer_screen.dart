@@ -165,12 +165,17 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
   }
 
   Future<void> _play() async {
+    // Capture BEFORE the await: if the screen is closed while the section
+    // query runs, touching `ref` (which `_engine` does) after dispose throws
+    // 'Cannot use "ref" after the widget was disposed'.
+    final engine = _engine;
+    final repo = ref.read(pieceRepositoryProvider);
     final pieceId = widget.folder.linkedPieceId;
     if (pieceId != null) {
-      final sections =
-          await ref.read(pieceRepositoryProvider).getSectionsForPiece(pieceId);
+      final sections = await repo.getSectionsForPiece(pieceId);
+      if (!mounted) return; // screen closed mid-query — don't start playback
       if (sections.isNotEmpty) {
-        _engine.start(
+        engine.start(
           sections: sections
               .map((s) => SectionConfig(
                     startMeasure: s.startMeasure,
@@ -189,7 +194,7 @@ class _ScoreViewerScreenState extends ConsumerState<ScoreViewerScreen> {
         return;
       }
     }
-    _engine.start();
+    engine.start();
   }
 
   // ── Page turn trigger editor ───────────────────────────────────────────────
@@ -640,22 +645,37 @@ class _TransportBar extends ConsumerWidget {
                     ? AppColors.darkTextSecondary
                     : AppColors.lightTextSecondary,
               ),
-            const Spacer(),
-            if (state != null && (playing || paused))
-              _chip(theme, 'M.${state.currentMeasure}'),
-            const SizedBox(width: 6),
-            _chip(theme, '♩ ${state?.bpm ?? "—"}'),
-            const SizedBox(width: 6),
-            AnimatedBuilder(
-              animation: pageCtrl,
-              builder: (_, __) {
-                final p = pageCtrl.hasClients
-                    ? ((pageCtrl.page ?? pageCtrl.initialPage.toDouble())
-                            .round() +
-                        1)
-                    : 1;
-                return _chip(theme, 'Pg $p/$pageCount');
-              },
+            const SizedBox(width: 4),
+            // Chips scale down as a group on narrow layouts instead of
+            // overflowing the bar.
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (state != null && (playing || paused)) ...[
+                      _chip(theme, 'M.${state.currentMeasure}'),
+                      const SizedBox(width: 6),
+                    ],
+                    _chip(theme, '♩ ${state?.bpm ?? "—"}'),
+                    const SizedBox(width: 6),
+                    AnimatedBuilder(
+                      animation: pageCtrl,
+                      builder: (_, __) {
+                        final p = pageCtrl.hasClients
+                            ? ((pageCtrl.page ??
+                                        pageCtrl.initialPage.toDouble())
+                                    .round() +
+                                1)
+                            : 1;
+                        return _chip(theme, 'Pg $p/$pageCount');
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

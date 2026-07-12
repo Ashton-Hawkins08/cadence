@@ -1,8 +1,45 @@
 #include "metronome_channel.h"
 
 #include <algorithm>
+#include <cstdarg>
+#include <cstdio>
 #include <fstream>
 #include <flutter/standard_method_codec.h>
+
+// ── Debug timing probe (temporary) ───────────────────────────────────────────
+// Appends QPC-timestamped audio events to C:\cadence\metro_debug.log so
+// session-to-session differences (clustered starts, alternating sound) can be
+// diagnosed from data instead of by ear. Strip once the timing bugs are dead.
+namespace {
+FILE*         g_dbg = nullptr;
+LARGE_INTEGER g_dbgFreq{};
+LARGE_INTEGER g_dbgT0{};
+
+void DbgOpen() {
+  if (g_dbg) return;
+  if (fopen_s(&g_dbg, "C:\\cadence\\metro_debug.log", "w") != 0) {
+    g_dbg = nullptr;
+    return;
+  }
+  QueryPerformanceFrequency(&g_dbgFreq);
+  QueryPerformanceCounter(&g_dbgT0);
+}
+
+void DbgLog(const char* fmt, ...) {
+  if (!g_dbg) return;
+  LARGE_INTEGER now;
+  QueryPerformanceCounter(&now);
+  const double ms = static_cast<double>(now.QuadPart - g_dbgT0.QuadPart) *
+                    1000.0 / static_cast<double>(g_dbgFreq.QuadPart);
+  fprintf(g_dbg, "%12.2f | ", ms);
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(g_dbg, fmt, ap);
+  va_end(ap);
+  fprintf(g_dbg, "\n");
+  fflush(g_dbg);
+}
+}  // namespace
 
 // ── Static member definitions ─────────────────────────────────────────────────
 
@@ -11,9 +48,8 @@ std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
 
 HWAVEOUT                         MetronomeChannel::s_hWaveOut{nullptr};
 std::map<std::string, MetronomeChannel::WavSound> MetronomeChannel::s_wavSounds;
-HWAVEOUT          MetronomeChannel::s_hKeepAlive{nullptr};
-std::vector<char> MetronomeChannel::s_keepAlivePcm;
-WAVEHDR           MetronomeChannel::s_keepAliveHdr{};
+std::thread       MetronomeChannel::s_keepAliveThread;
+std::atomic<bool> MetronomeChannel::s_keepAliveRunning{false};
 
 std::thread       MetronomeChannel::s_beatThread;
 std::atomic<bool> MetronomeChannel::s_running{false};
@@ -102,12 +138,22 @@ void MetronomeChannel::CloseWaveOut() {
 
 void MetronomeChannel::PlayPcm(const std::string& name) {
   std::lock_guard<std::mutex> lk(s_wavMutex);
-  if (!s_hWaveOut) return;
+  if (!s_hWaveOut) {
+    DbgLog("PlayPcm %s: NO DEVICE", name.c_str());
+    return;
+  }
   auto it = s_wavSounds.find(name);
-  if (it == s_wavSounds.end()) return;
+  if (it == s_wavSounds.end()) {
+    DbgLog("PlayPcm %s: UNKNOWN SOUND", name.c_str());
+    return;
+  }
 
   WavSound& ws = it->second;
   if (ws.pcm.empty()) return;
+
+  MMTIME mmt{};
+  mmt.wType = TIME_SAMPLES;
+  waveOutGetPosition(s_hWaveOut, &mmt, sizeof(mmt));
 
   // Try each buffer slot in sequence; prefer one not currently in the driver
   // queue. With kWavBufferCount = 4 and our longest click at 12 ms, all
@@ -123,7 +169,10 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
       break;
     }
   }
-  if (!hdrPtr) return; // all buffers queued (shouldn't happen with 4 buffers)
+  if (!hdrPtr) {
+    DbgLog("PlayPcm %s: ALL 4 BUFFERS INQUEUE — beat dropped", name.c_str());
+    return; // all buffers queued (shouldn't happen with 4 buffers)
+  }
 
   WAVEHDR& hdr = *hdrPtr;
 
@@ -134,60 +183,50 @@ void MetronomeChannel::PlayPcm(const std::string& name) {
   hdr.lpData         = ws.pcm.data();
   hdr.dwBufferLength = static_cast<DWORD>(ws.pcm.size());
 
-  if (waveOutPrepareHeader(s_hWaveOut, &hdr, sizeof(WAVEHDR)) == MMSYSERR_NOERROR)
-    waveOutWrite(s_hWaveOut, &hdr, sizeof(WAVEHDR));
+  const MMRESULT prep = waveOutPrepareHeader(s_hWaveOut, &hdr, sizeof(WAVEHDR));
+  MMRESULT write = MMSYSERR_ERROR;
+  if (prep == MMSYSERR_NOERROR)
+    write = waveOutWrite(s_hWaveOut, &hdr, sizeof(WAVEHDR));
+  DbgLog("PlayPcm %-9s devicePos=%lu prep=%u write=%u", name.c_str(),
+         static_cast<unsigned long>(mmt.u.sample), prep, write);
 }
 
-// Starts the permanent silent keep-alive stream (see header comment).
+// Keeps the click stream warm by pinging 10 ms of silence through the click
+// handle every ~1.5 s while the beat thread is NOT actively playing.
 //
-// This replaces the old WarmupAudioRoute() drain-wait: warming the route on
-// every start/resume fixed the beat-SPACING problem (beat 0 no longer paid
-// the route-restart spike relative to beat 1) but moved the cost to
-// TAP-TO-SOUND — the platform thread blocked up to ~150 ms before the beat
-// thread even launched, so beat 1 audibly lagged the button press. With the
-// route held permanently open there is nothing to warm: beat 0 fires within
-// a few ms of the tap, on a hot path, every time.
+// History, because this spot has eaten three fixes:
+//   1. Blocking warm-up at every start fixed beat SPACING but made beat 1
+//      lag the tap by up to 150 ms.
+//   2. An infinitely-looping silence buffer (WHDR_BEGINLOOP/dwLoops=∞) on a
+//      second handle fixed the lag but produced constant STATIC on this
+//      machine — the wave mapper's software loop path replays undefined
+//      buffer memory on some drivers. Driver loops are the least-tested
+//      legacy corner of waveOut; nothing mainstream uses them.
+//   3. This version: plain periodic writes through the exact same PlayPcm
+//      path every click uses (provably clean in the timing probe). While
+//      playing, the beats themselves keep the stream warm; while stopped or
+//      paused, the pings do. The beat thread's prime + 50 ms pre-roll
+//      covers whatever residual cold-start remains.
 void MetronomeChannel::StartKeepAliveLoop() {
-  if (s_hKeepAlive) return;
-
-  WAVEFORMATEX wfx{};
-  wfx.wFormatTag      = WAVE_FORMAT_PCM;
-  wfx.nChannels       = 1;
-  wfx.nSamplesPerSec  = 22050;
-  wfx.wBitsPerSample  = 16;
-  wfx.nBlockAlign     = 2;
-  wfx.nAvgBytesPerSec = 44100;
-  if (waveOutOpen(&s_hKeepAlive, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL)
-          != MMSYSERR_NOERROR) {
-    s_hKeepAlive = nullptr; // no keep-alive; clicks still work (cold starts)
-    return;
-  }
-
-  // 500 ms of silence (0.5 s × 22050 Hz × 2 bytes), looped forever.
-  s_keepAlivePcm.assign(22050, 0);
-  ZeroMemory(&s_keepAliveHdr, sizeof(WAVEHDR));
-  s_keepAliveHdr.lpData         = s_keepAlivePcm.data();
-  s_keepAliveHdr.dwBufferLength = static_cast<DWORD>(s_keepAlivePcm.size());
-  // dwFlags must be clear for Prepare; loop flags are OR'd in afterwards
-  // (the documented order for looping buffers).
-  if (waveOutPrepareHeader(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR))
-          != MMSYSERR_NOERROR) {
-    waveOutClose(s_hKeepAlive);
-    s_hKeepAlive = nullptr;
-    return;
-  }
-  s_keepAliveHdr.dwFlags |= WHDR_BEGINLOOP | WHDR_ENDLOOP;
-  s_keepAliveHdr.dwLoops  = 0xFFFFFFFF;
-  waveOutWrite(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR));
+  if (s_keepAliveRunning.load(std::memory_order_acquire)) return;
+  s_keepAliveRunning.store(true, std::memory_order_release);
+  s_keepAliveThread = std::thread([] {
+    int sleepCycles = 0;
+    while (s_keepAliveRunning.load(std::memory_order_relaxed)) {
+      Sleep(100);
+      if (++sleepCycles < 15) continue; // ~1.5 s between pings
+      sleepCycles = 0;
+      const bool playing = s_running.load(std::memory_order_acquire) &&
+                           !s_paused.load(std::memory_order_acquire);
+      if (!playing) PlayPcm("_prime");
+    }
+  });
 }
 
 void MetronomeChannel::StopKeepAliveLoop() {
-  if (!s_hKeepAlive) return;
-  waveOutReset(s_hKeepAlive);
-  waveOutUnprepareHeader(s_hKeepAlive, &s_keepAliveHdr, sizeof(WAVEHDR));
-  waveOutClose(s_hKeepAlive);
-  s_hKeepAlive = nullptr;
-  s_keepAlivePcm.clear();
+  if (!s_keepAliveRunning.load(std::memory_order_acquire)) return;
+  s_keepAliveRunning.store(false, std::memory_order_release);
+  if (s_keepAliveThread.joinable()) s_keepAliveThread.join();
 }
 
 // ── Beat thread ───────────────────────────────────────────────────────────────
@@ -223,6 +262,7 @@ void MetronomeChannel::RunBeatLoop() {
   // prime has finished by then. Dart mirrors the same constant when
   // anchoring its visual timer (metronome_engine.dart start()).
   constexpr LONGLONG kStartPreRollMs = 50;
+  DbgLog("BEAT THREAD START (prime + %lld ms pre-roll)", kStartPreRollMs);
   PlayPcm("_prime");
 
   LARGE_INTEGER nextBeat;
@@ -231,7 +271,6 @@ void MetronomeChannel::RunBeatLoop() {
 
   LARGE_INTEGER pausedAt = {};
   bool wasPaused = false;
-  int pausePings = 0;
 
   size_t localTickIdx = 0;
 
@@ -243,16 +282,10 @@ void MetronomeChannel::RunBeatLoop() {
       if (!wasPaused) {
         QueryPerformanceCounter(&pausedAt);
         wasPaused = true;
-        pausePings = 0;
       }
+      // The keep-alive thread pings the stream during pauses, so the first
+      // resumed beat plays on a warm stream with no priming spike.
       Sleep(4);
-      // Ping silence through the click stream every ~1.5 s of pause so it
-      // never idles — the first resumed beat then plays on a warm stream
-      // with no priming spike (resume has no pre-roll to hide one in).
-      if (++pausePings >= 375) {
-        pausePings = 0;
-        PlayPcm("_prime");
-      }
       if (!s_running.load(std::memory_order_relaxed)) break;
       continue;
     }
@@ -284,6 +317,8 @@ void MetronomeChannel::RunBeatLoop() {
 
       const BeatDef& tick = ticks[localTickIdx % ticks.size()];
 
+      DbgLog("beat idx=%zu sound=%s vol=%.2f", localTickIdx, tick.sound.c_str(),
+             tick.volume);
       PlayPcm(tick.sound);
 
       double intervalMs =
@@ -353,6 +388,8 @@ void MetronomeChannel::HandleMethodCall(
 
   // ── init: load WAV files and open waveOut device ──────────────────────────
   if (method == "init") {
+    DbgOpen();
+    DbgLog("== init ==");
     StopBeatThread();
     StopKeepAliveLoop();
     CloseWaveOut();
@@ -381,16 +418,24 @@ void MetronomeChannel::HandleMethodCall(
           if (wavData.size() > 44) {
             WavSound ws;
             ws.pcm.assign(wavData.begin() + 44, wavData.end());
+            // 16-bit PCM must be an even byte count: an odd-length buffer
+            // byte-shifts the driver's sample framing and turns everything
+            // after it into white noise.
+            if (ws.pcm.size() & 1) ws.pcm.pop_back();
             s_wavSounds[*k] = std::move(ws);
           }
         }
       }
 
       // 10 ms of silence used to prime the click stream (see RunBeatLoop)
-      // and to keep it warm across pauses.
+      // and to keep it warm between sessions and across pauses.
+      // SAMPLE-ALIGNED: 220 samples × 2 bytes. The original byte math
+      // (22050×2×10/1000 = 441) produced an ODD byte count — half a 16-bit
+      // sample — which shifted the driver's sample framing so every buffer
+      // queued after a ping decoded as white noise: the "constant static".
       {
         WavSound prime;
-        prime.pcm.assign(22050 * 2 * 10 / 1000, 0);
+        prime.pcm.assign(220 * 2, 0);
         s_wavSounds["_prime"] = std::move(prime);
       }
       // Hold the render route open for the app's lifetime — no click ever
@@ -422,6 +467,10 @@ void MetronomeChannel::HandleMethodCall(
       }
     }
     s_resetRequested.store(false, std::memory_order_release);
+    {
+      std::lock_guard<std::mutex> lk(s_ticksMutex);
+      DbgLog("== start == bpm=%d ticks=%zu", s_bpm.load(), s_ticks.size());
+    }
     // Route is already hot (keep-alive stream) — launch the thread
     // immediately so beat 0 lands within a few ms of the tap.
     StartBeatThread();
@@ -429,15 +478,18 @@ void MetronomeChannel::HandleMethodCall(
 
   // ── stop ──────────────────────────────────────────────────────────────────
   } else if (method == "stop") {
+    DbgLog("== stop ==");
     StopBeatThread();
     result->Success();
 
   // ── pause / resume ─────────────────────────────────────────────────────────
   } else if (method == "pause") {
+    DbgLog("== pause ==");
     s_paused.store(true, std::memory_order_release);
     result->Success();
 
   } else if (method == "resume") {
+    DbgLog("== resume ==");
     // Route is held hot by the keep-alive stream — just unpause.
     s_paused.store(false, std::memory_order_release);
     result->Success();

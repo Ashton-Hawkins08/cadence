@@ -398,21 +398,29 @@ class _LiveDisplay extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _Stat(label: 'BPM', value: '${state.bpm}'),
-                _Stat(label: 'Time Sig', value: ts.display),
-                _Stat(
-                    label: 'Measure',
-                    value: state.countInActive
-                        ? '—'
-                        : 'M${state.currentMeasure}'),
-                _Stat(
-                    label: 'Section',
-                    value:
-                        '${activeSectionIndex + 1}/${sections.length}'),
-              ],
+            // FittedBox: at phone widths (or long values like M120 · 12/16)
+            // the four stats scale down together instead of overflowing.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Stat(label: 'BPM', value: '${state.bpm}'),
+                  const SizedBox(width: 28),
+                  _Stat(label: 'Time Sig', value: ts.display),
+                  const SizedBox(width: 28),
+                  _Stat(
+                      label: 'Measure',
+                      value: state.countInActive
+                          ? '—'
+                          : 'M${state.currentMeasure}'),
+                  const SizedBox(width: 28),
+                  _Stat(
+                      label: 'Section',
+                      value:
+                          '${activeSectionIndex + 1}/${sections.length}'),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             Text(

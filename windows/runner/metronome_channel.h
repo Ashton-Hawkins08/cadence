@@ -53,15 +53,14 @@ class MetronomeChannel {
   static void PlayPcm(const std::string& name);
   static void CloseWaveOut();
 
-  // ── Silent keep-alive stream ─────────────────────────────────────────────
-  // An infinitely-looping buffer of silence on its OWN waveOut handle keeps
-  // the shared-mode render route open for the app's whole lifetime, so no
-  // click ever pays the route-restart latency spike. It must be a separate
-  // handle: waveOut plays a handle's buffers sequentially, so an infinite
-  // loop on s_hWaveOut would block every click queued behind it forever.
-  static HWAVEOUT          s_hKeepAlive;
-  static std::vector<char> s_keepAlivePcm;
-  static WAVEHDR           s_keepAliveHdr;
+  // ── Keep-alive pings ─────────────────────────────────────────────────────
+  // A maintenance thread pings 10 ms of silence through the click handle
+  // every ~1.5 s while not actively playing, so neither the render route
+  // nor the click stream ever idles long enough to pay a restart spike on
+  // the next real click. (See StartKeepAliveLoop in the .cpp for why this
+  // is periodic writes and NOT a driver-looped buffer.)
+  static std::thread       s_keepAliveThread;
+  static std::atomic<bool> s_keepAliveRunning;
   static void StartKeepAliveLoop();
   static void StopKeepAliveLoop();
 
