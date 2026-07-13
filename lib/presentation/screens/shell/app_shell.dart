@@ -53,7 +53,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navIndexProvider);
-    final tutorialDone = ref.watch(tutorialCompleteProvider).valueOrNull ?? true;
+    final tutorialDone =
+        ref.watch(tutorialCompleteProvider).valueOrNull ?? true;
 
     return Scaffold(
       body: Column(
@@ -63,10 +64,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               duration: const Duration(milliseconds: 220),
               switchInCurve: Curves.easeIn,
               switchOutCurve: Curves.easeOut,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
               child: KeyedSubtree(
                 key: ValueKey(currentIndex),
                 child: _screens[_screenIndex(currentIndex)],
@@ -149,7 +148,8 @@ class _TutorialCardState extends ConsumerState<_TutorialCard> {
       }
     });
 
-    final bool isInteractive = step == TutorialStep.createCategory ||
+    final bool isInteractive =
+        step == TutorialStep.createCategory ||
         step == TutorialStep.createExercise;
     final bool isDone = step == TutorialStep.done;
 
@@ -207,8 +207,7 @@ class _TutorialCardState extends ConsumerState<_TutorialCard> {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -231,7 +230,9 @@ class _TutorialCardState extends ConsumerState<_TutorialCard> {
                   style: TextButton.styleFrom(
                     minimumSize: Size.zero,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
@@ -324,59 +325,70 @@ class _ManageSheet extends StatelessWidget {
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        decoration: BoxDecoration(
+        // Material (not a decorated box): the ListTiles inside paint their
+        // ink ripples on the nearest Material — behind a DecoratedBox the
+        // ripples were invisible and debug builds flagged it on every open.
+        child: Material(
           color: isDark ? AppColors.darkCard : AppColors.lightCard,
           borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkDivider : AppColors.lightDivider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Manage',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkDivider
+                      : AppColors.lightDivider,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-            _ManageOption(
-              icon: Icons.folder_outlined,
-              label: 'Categories & Exercises',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                    context, _slide(const CategoryExercisesScreen()));
-              },
-            ),
-            _ManageOption(
-              icon: Icons.history_outlined,
-              label: 'Practice History',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, _slide(const HistoryScreen()));
-              },
-            ),
-            _ManageOption(
-              icon: Icons.inventory_2_outlined,
-              label: 'Archive',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, _slide(const ArchiveScreen()));
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  'Manage',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _ManageOption(
+                icon: Icons.folder_outlined,
+                label: 'Categories & Exercises',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    _slide(const CategoryExercisesScreen()),
+                  );
+                },
+              ),
+              _ManageOption(
+                icon: Icons.history_outlined,
+                label: 'Practice History',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, _slide(const HistoryScreen()));
+                },
+              ),
+              _ManageOption(
+                icon: Icons.inventory_2_outlined,
+                label: 'Archive',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, _slide(const ArchiveScreen()));
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -386,11 +398,10 @@ class _ManageSheet extends StatelessWidget {
     return PageRouteBuilder(
       pageBuilder: (_, __, ___) => page,
       transitionsBuilder: (_, animation, __, child) => SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+        position: Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
         child: child,
       ),
       transitionDuration: const Duration(milliseconds: 280),
@@ -416,8 +427,7 @@ class _ManageOption extends StatelessWidget {
       leading: Icon(icon, color: theme.colorScheme.primary),
       title: Text(
         label,
-        style:
-            theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
       ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
