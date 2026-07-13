@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/domain/validators/name_validator.dart';
+import 'package:cadence/presentation/providers/cloud_provider.dart';
 import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
+import 'package:cadence/presentation/screens/settings/cloud_auth_form.dart';
 import 'package:cadence/presentation/screens/shell/app_shell.dart';
+import 'package:cadence/presentation/widgets/common/centered_scroll_page.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -25,7 +28,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _instrumentKey = GlobalKey<FormState>();
   bool _saving = false;
 
-  static const _pageCount = 4;
+  // Cloud availability is fixed for the app's whole run (set once in main()
+  // before runApp), so reading it once here is safe and avoids recomputing
+  // page indices on every rebuild.
+  late final bool _cloudAvailable;
+  late final int _namePageIndex;
+  late final int _pageCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _cloudAvailable = ref.read(cloudAvailableProvider);
+    // Page order: Welcome, [Create Account], How It Works, Name, Instrument.
+    _namePageIndex = _cloudAvailable ? 3 : 2;
+    _pageCount = _cloudAvailable ? 5 : 4;
+  }
 
   @override
   void dispose() {
@@ -37,7 +54,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _next() {
-    if (_currentPage == 2) {
+    if (_currentPage == _namePageIndex) {
       // Name page — validate before proceeding
       if (!_nameKey.currentState!.validate()) return;
     }
@@ -120,6 +137,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
                   _WelcomePage(onNext: _next),
+                  if (_cloudAvailable)
+                    _CreateAccountPage(onNext: _next, onSkip: _next),
                   _HowItWorksPage(onNext: _next),
                   _NamePage(
                     firstNameController: _firstNameController,
@@ -154,10 +173,9 @@ class _WelcomePage extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return CenteredScrollPage(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
             isDark
@@ -203,7 +221,63 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
-// ── Page 2: How It Works ───────────────────────────────────────────────────────
+// ── Page 2 (conditional): Create Account ──────────────────────────────────────
+//
+// Only included in the page list when Cadence Cloud is available (see
+// _cloudAvailable in _OnboardingScreenState). Always skippable — cloud is a
+// bonus layer over the local-first app, never a gate. Skipping or a
+// successful sign-in/create-account both just advance to the next page.
+
+class _CreateAccountPage extends StatelessWidget {
+  final VoidCallback onNext;
+  final VoidCallback onSkip;
+  const _CreateAccountPage({required this.onNext, required this.onSkip});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return CenteredScrollPage(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(Icons.cloud_outlined,
+              size: 64, color: theme.colorScheme.primary),
+          const SizedBox(height: 24),
+          Text(
+            'Back up your progress',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a free Cadence Cloud account to back up your practice '
+            'data and pick up right where you left off on another device. '
+            'You can always do this later from Settings.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 28),
+          CloudAuthForm(onAuthenticated: onNext),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: onSkip,
+            child: const Text('Skip for now'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Page 3: How It Works ───────────────────────────────────────────────────────
 
 class _HowItWorksPage extends StatelessWidget {
   final VoidCallback onNext;
@@ -213,10 +287,9 @@ class _HowItWorksPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return CenteredScrollPage(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -238,7 +311,7 @@ class _HowItWorksPage extends StatelessWidget {
           _Step(
               number: '5',
               text: 'Check reminders so nothing gets neglected'),
-          const Spacer(),
+          const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -296,7 +369,7 @@ class _Step extends StatelessWidget {
   }
 }
 
-// ── Page 3: Name ───────────────────────────────────────────────────────────────
+// ── Page 4: Name ───────────────────────────────────────────────────────────────
 
 class _NamePage extends StatelessWidget {
   final TextEditingController firstNameController;
@@ -315,10 +388,9 @@ class _NamePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return CenteredScrollPage(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -376,7 +448,7 @@ class _NamePage extends StatelessWidget {
   }
 }
 
-// ── Page 4: Instrument ─────────────────────────────────────────────────────────
+// ── Page 5: Instrument ─────────────────────────────────────────────────────────
 
 class _InstrumentPage extends StatelessWidget {
   final TextEditingController controller;
@@ -395,10 +467,9 @@ class _InstrumentPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return CenteredScrollPage(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
