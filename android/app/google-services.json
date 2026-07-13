@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "238562404536",
+    "firebase_url": "https://cadence-498ff-default-rtdb.firebaseio.com",
+    "project_id": "cadence-498ff",
+    "storage_bucket": "cadence-498ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:238562404536:android:dd1f62e364120df49d6c4d",
+        "android_client_info": {
+          "package_name": "com.cadencecmh.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8ukMbBdC2MefkZ_6tMcpQEyCRjq_UtoU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:238562404536:android:11904602b3d07f299d6c4d",
+        "android_client_info": {
+          "package_name": "com.cadencecmh.cadence"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8ukMbBdC2MefkZ_6tMcpQEyCRjq_UtoU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

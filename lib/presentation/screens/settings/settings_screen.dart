@@ -9,6 +9,7 @@ import 'package:cadence/presentation/providers/exercises_provider.dart';
 import 'package:cadence/presentation/providers/history_provider.dart';
 import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/providers/streak_provider.dart';
+import 'cloud_account_section.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -27,6 +28,9 @@ class SettingsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // ── Cadence Cloud (hidden when unavailable) ──────────────────
+              const CloudAccountSection(),
+
               // ── Profile ───────────────────────────────────────────────────
               _SectionHeader('Profile'),
               Card(
