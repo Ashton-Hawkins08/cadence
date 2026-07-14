@@ -103,9 +103,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // down a real profile (see _CreateAccountPage) — the cloud already
   // answered the Name/Instrument questions, so skip straight past them
   // instead of asking the user to redundantly retype what a restore just
-  // brought back.
+  // brought back. Same reasoning applies to the separate 5-step tutorial
+  // card (Home screen) — a device that just restored real practice data
+  // belongs to a returning user, not someone who needs the app explained.
   Future<void> _finishFromRestoredProfile() async {
-    await ref.read(settingsRepositoryProvider).completeOnboarding();
+    final repo = ref.read(settingsRepositoryProvider);
+    await repo.completeOnboarding();
+    await repo.completeTutorial();
     if (!mounted) return;
     Navigator.pushReplacement(
       context,

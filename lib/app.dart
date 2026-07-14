@@ -6,6 +6,7 @@ import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/screens/shell/app_shell.dart';
 import 'package:cadence/presentation/screens/onboarding/onboarding_screen.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
+import 'package:cadence/domain/services/auto_backup_coordinator.dart';
 
 final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
   final repo = ref.watch(settingsRepositoryProvider);
@@ -64,6 +65,12 @@ class _AppRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (kIsWeb) return const _WebUnsupportedScreen();
+
+    // Constructs (once) and keeps alive the "constant backup" coordinator
+    // for the app's whole run — see auto_backup_coordinator.dart. A plain
+    // Provider caches its instance, so this watch does not restart it on
+    // every _AppRoot rebuild (e.g. onboarding completing).
+    ref.watch(autoBackupProvider);
 
     final onboardingAsync = ref.watch(onboardingCompleteProvider);
 

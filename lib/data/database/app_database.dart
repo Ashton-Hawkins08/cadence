@@ -235,6 +235,27 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 9;
 
+  // The tables CloudSyncService actually pushes/pulls (mirrors its own
+  // table-by-table scope — see cloud_sync_service.dart's class doc for why
+  // the sheet-music vault is excluded). Exposed as real TableInfo objects
+  // so AutoBackupCoordinator can listen for changes via Drift's own
+  // tableUpdates() stream instead of every repository having to remember to
+  // separately signal "something changed" — the same class of gap that,
+  // forgotten, silently broke deletion sync until it was caught and fixed.
+  List<TableInfo> get cloudSyncedTables => [
+        categories,
+        archivedCategoryBundles,
+        calendarEvents,
+        eventReminders,
+        exercises,
+        bpmLogs,
+        exerciseNotes,
+        categoryNotes,
+        historyEntries,
+        metronomePieces,
+        pieceSections,
+      ];
+
   // Every table that carries SyncColumns — used by the v9 migration and the
   // sync-id unique indexes. SQL (snake_case) names.
   static const _syncedTables = [
