@@ -20,6 +20,7 @@ Cadence is an all-in-one practice assistant for musicians, built with Flutter. I
 ### Contents
 
 - [Why Cadence](#why-cadence)
+- [Why a Musician Needs This](#why-a-musician-needs-this)
 - [Core Features](#core-features)
 - [Full Feature Reference](#full-feature-reference)
 - [Tech Stack](#tech-stack)
@@ -31,6 +32,34 @@ Cadence is an all-in-one practice assistant for musicians, built with Flutter. I
 ## Why Cadence
 
 Most practice tools solve one problem in isolation. Cadence ties them together: a metronome section roadmap can drive page turns in your sheet music, a tuner and tempo detector share the same microphone pipeline, and every practice session feeds the same stats and streak system. It's local-first by design — every feature above works fully offline, since rehearsal rooms have no signal to depend on — with an optional Cadence Cloud account when you want backup and continuity across devices.
+
+Four questions drive every design decision: *What should I practice? Am I actually improving? Am I ready for this performance? What have I been neglecting?* Nothing in the app exists that doesn't answer one of those.
+
+---
+
+## Why a Musician Needs This
+
+Not feature-for-feature's-sake — each one solves a specific practice problem.
+
+- **Sub-millisecond native timing** — a metronome that isn't perfectly steady works against the exact skill it's supposed to build. If a musician spends months practicing "in time" against a click that secretly drifts or stutters under load, they're internalizing the metronome's own imprecision, not real time. Precision isn't a nice-to-have here; a "close enough" metronome defeats the tool's entire purpose.
+
+- **Odd and compound meters (5/8, 7/8, 11/8, 6/8, ...)** — a large share of real repertoire — modern band and orchestral literature, film and game scores, anything with Balkan or progressive influence — isn't in 4/4. A metronome that only counts in four either locks a musician out of that music or forces ad-hoc manual counting, which is exactly the crutch a metronome is supposed to remove.
+
+- **Piece Builder (multi-section tempo roadmap)** — real pieces change tempo and meter section to section; a single static BPM only rehearses one section faithfully at a time, with a manual reset at every boundary. A roadmap plays the tempo and meter map of the actual piece, so a full run-through can be practiced exactly as it will be performed, not stitched together from isolated fragments.
+
+- **Blind BPM Randomizer** — it's easy to watch the beat indicator instead of actually feeling the tempo, a visual crutch that quietly evaporates the moment a metronome isn't in view — which is every real performance. Hiding the number forces the internal sense that's actually being trained.
+
+- **Cognitive Break (controlled drift + dropped beats)** — a musician who has only ever practiced against a mechanically perfect click can come apart the moment a live ensemble's tempo naturally breathes, or a beat gets briefly buried in the mix. Deliberately unstable practice builds the recovery reflex that a perfectly steady click never asks for.
+
+- **Tuner + Tempo Ear, built into the same tool** — pitch and tempo are the two feedback loops a musician needs constantly, not occasionally. Three separate apps means the tuner is the one that's *not* already open when a string goes flat mid-run-through — so in practice, it doesn't get used. Built into the same app as the metronome, it does.
+
+- **Rehearsal Canvas (annotated sheet music + auto page-turns)** — flipping a physical page means stopping and taking a hand off the instrument, right when focus matters most; pencil marks are permanent and hard to revise as fingerings change. Digital annotation is easy to update, and auto page-turns tied to the metronome's own measure count mean hands never have to leave the instrument to keep the music moving.
+
+- **Readiness score, BPM history, streaks** — "am I actually improving, or just spending time?" is hard to answer from memory alone. Objective BPM history over weeks answers the first question directly; a readiness score that blends goal progress, how recently each exercise was touched, and practice consistency turns "am I ready for Saturday?" into one number instead of a guess.
+
+- **Calendar + per-exercise reminders** — it's easy to unconsciously favor the pieces that are already fun to play and let a struggling one quietly go three weeks untouched. Reminders on each exercise's own interval surface that neglect before a performance does.
+
+- **Cadence Cloud backup** — practice history is real, irreplaceable data — months of BPM progress and session logs, gone with a lost or reset phone. Backup exists because losing that record shouldn't cost more than losing the device did.
 
 ---
 
