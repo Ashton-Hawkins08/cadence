@@ -28,6 +28,27 @@ final cloudSyncServiceProvider = Provider<CloudSyncService?>((ref) {
   return CloudSyncService(db: ref.watch(databaseProvider), uid: user.uid);
 });
 
+// Same as cloudSyncServiceProvider's null-check, but reads
+// FirebaseAuth.instance.currentUser directly instead of going through the
+// authStateChanges() STREAM.
+//
+// Why this exists: immediately after CloudAuth.signIn()/createAccount()
+// resolves, code that needs "am I signed in RIGHT NOW" (e.g. auto-restore
+// right after a successful sign-in) cannot safely rely on
+// cloudSyncServiceProvider — the stream event that updates it can lag
+// slightly behind the sign-in call's own Future completing, so reading it
+// immediately after can still see the pre-sign-in (signed-out) state and
+// silently skip the restore. FirebaseAuth updates `currentUser`
+// synchronously as part of completing the sign-in itself, so this has no
+// such race. Everything NOT in that immediate post-auth window (Settings'
+// backup/restore buttons, the account display) should keep using the
+// reactive provider, which is what actually keeps the UI live-updated.
+CloudSyncService? currentUserCloudSync(WidgetRef ref) {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return null;
+  return CloudSyncService(db: ref.read(databaseProvider), uid: user.uid);
+}
+
 // Thin wrapper so screens never import firebase_auth directly.
 class CloudAuth {
   static Future<String?> signIn(String email, String password) =>

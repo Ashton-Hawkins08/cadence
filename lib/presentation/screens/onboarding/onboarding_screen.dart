@@ -280,7 +280,14 @@ class _CreateAccountPageState extends ConsumerState<_CreateAccountPage> {
       widget.onNext();
       return;
     }
-    final sync = ref.read(cloudSyncServiceProvider);
+    // currentUserCloudSync reads FirebaseAuth.instance.currentUser directly
+    // rather than the reactive cloudSyncServiceProvider: that provider
+    // depends on authStateChanges(), a STREAM that can still be carrying
+    // the pre-sign-in (signed-out) value for a moment after this callback
+    // fires — reading it here risked silently skipping the restore
+    // entirely and falling through as if this were a brand-new account,
+    // which is exactly the bug this page exists to fix.
+    final sync = currentUserCloudSync(ref);
     if (sync == null) {
       widget.onNext();
       return;
@@ -288,18 +295,20 @@ class _CreateAccountPageState extends ConsumerState<_CreateAccountPage> {
     // Signing into an account that may already have a backup — pull it down
     // BEFORE asking for a name/instrument the cloud might already answer.
     setState(() => _restoring = true);
+    var restored = false;
     try {
       await sync.restore();
+      // The restore writes straight to SharedPreferences; refresh the
+      // provider so its in-memory copy reflects what just landed.
+      ref.invalidate(settingsProvider);
+      final settings = await ref.read(settingsProvider.future);
+      restored = settings.firstName.isNotEmpty && settings.instrument.isNotEmpty;
     } catch (_) {
       // Offline, etc. Fall through to normal onboarding — nothing lost,
       // and the user can retry from Settings once connected.
     }
-    // The restore writes straight to SharedPreferences; refresh the
-    // provider so its in-memory copy reflects what just landed.
-    ref.invalidate(settingsProvider);
-    final settings = await ref.read(settingsProvider.future);
     if (!mounted) return;
-    if (settings.firstName.isNotEmpty && settings.instrument.isNotEmpty) {
+    if (restored) {
       widget.onProfileRestored();
     } else {
       setState(() => _restoring = false);

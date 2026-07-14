@@ -271,7 +271,13 @@ class _SignInSheetState extends ConsumerState<_SignInSheet> {
     // before closing the sheet, so "sign in" actually means "my data is
     // here" rather than leaving the user to discover the separate Restore
     // button themselves.
-    final sync = ref.read(cloudSyncServiceProvider);
+    //
+    // currentUserCloudSync (not cloudSyncServiceProvider) deliberately:
+    // the reactive provider depends on the authStateChanges() STREAM, which
+    // can still report signed-out for a moment after this callback fires,
+    // silently skipping the restore. FirebaseAuth.currentUser is updated
+    // synchronously as part of the sign-in call completing.
+    final sync = currentUserCloudSync(ref);
     if (sync == null) {
       if (mounted) Navigator.pop(context);
       return;
