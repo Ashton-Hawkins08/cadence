@@ -21,6 +21,7 @@ Cadence is an all-in-one practice assistant for musicians, built with Flutter. I
 
 - [Why Cadence](#why-cadence)
 - [Core Features](#core-features)
+- [Full Feature Reference](#full-feature-reference)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
@@ -63,6 +64,136 @@ Most practice tools solve one problem in isolation. Cadence ties them together: 
 - Constant backup: a debounced listener on the local database pushes changes automatically a few seconds after they settle, so there's nothing to remember to tap
 - Signing into an existing account restores your data immediately — on a fresh install, that means skipping onboarding's setup questions entirely once your profile comes back from the cloud
 - Cross-device restore correctly rebuilds relationships even though each device assigns its own local row IDs: every row carries a stable UUID `syncId`, and restore walks tables in dependency order, remapping each parent's `syncId` to *this device's own* local ID before resolving its children's foreign keys — verified by tests that run backup and restore across two independent databases with deliberately mismatched local IDs, so a broken remap can't accidentally pass
+
+---
+
+## Full Feature Reference
+
+The section above is the pitch; this is every screen and what it actually does, organized by navigation area. Expand any section.
+
+<details>
+<summary><b>Onboarding</b></summary>
+
+<br>
+
+- Welcome → (optional) Cadence Cloud account → how-it-works walkthrough → name → primary instrument
+- The account step is always skippable — a "Skip for now" option is present, and declining or dismissing it changes nothing else about the flow
+- Signing into an **existing** account here (not creating a new one) restores your data immediately and, if a profile comes back, skips straight past the remaining name/instrument/tutorial screens instead of re-asking
+- A device that somehow reaches this flow with a name and instrument already saved locally never sees it a second time — the completion flag self-heals against the real data rather than trusting itself blindly
+
+</details>
+
+<details>
+<summary><b>Home</b></summary>
+
+<br>
+
+- **Readiness Score** (0–100), blended from three weighted signals:
+  - 40% goal progress — average of each exercise's progress toward its goal BPM (exercises with no goal set don't drag this down; the score is neutral at 50% when nothing has a goal yet)
+  - 35% practice freshness — the share of exercises practiced within their own reminder window
+  - 25% streak health — current streak length (capped at a week), reduced for any streak debt owed
+- **Average BPM overall** and current **streak**, with a streak-debt callout ("log extra sessions to clear it") when applicable
+- Reminders list for exercises overdue against their individual reminder-day setting
+- A 5-step interactive tutorial card (Welcome → the 5 nav sections → create a category → add an exercise → done) for brand-new installs, auto-advancing as you complete each real action; dismissed permanently once finished or skipped, and never shown again if you signed into an account that already had data
+
+</details>
+
+<details>
+<summary><b>Log Session</b></summary>
+
+<br>
+
+- Three taps to log a session: pick an exercise, enter BPM, enter minutes practiced, optional note — no separate summary screen, confirms and drops you back to Home immediately
+- Updates the exercise's last/highest BPM, total minutes, times-practiced count, and last-practiced date in the same action
+
+</details>
+
+<details>
+<summary><b>Manage</b></summary>
+
+<br>
+
+Opens a popup with three destinations:
+
+- **Categories & Exercises** — create/rename/delete categories; add exercises with an optional goal BPM, initial BPM (for progress-percentage math), custom reminder interval, and optional sheet music / measure-tracked piece attachment
+- **Practice History** — every logged session, grouped by date, capped at the 50 most recent (oldest silently rolls off — and is recorded for cloud sync exactly like a deletion, so it doesn't reappear on a restore)
+- **Archive** — categories and exercises removed from active use; deleting a whole category bundles its exercises into one archived unit you can restore as a group, or restore/delete individually
+
+</details>
+
+<details>
+<summary><b>Metronome</b></summary>
+
+<br>
+
+- BPM entry via text field, slider, or tap tempo (1–300 BPM, hard-capped)
+- Every time signature from 1/4 through 6/4, plus compound (3/8, 6/8, 9/8, 12/8) and odd meters (5/8, 7/8, 11/8) with selectable accent groupings (e.g. 7/8 as 2+2+3, 2+3+2, or 3+2+2)
+- Subdivisions (eighths, sixteenths, triplets) and an accent-first-beat toggle
+- **Blind BPM Randomizer** — hides the running tempo within a range you set around a locked base; tap to reveal
+- **Cognitive Break** — a timed background drill that injects small tempo drift and occasional dropped beats into the click pattern, then returns cleanly to the base tempo
+- **Tempo Ear** (bottom sheet) — taps out a tempo from ambient sound picked up by the mic, including odd-meter recognition, and shows the detected BPM alongside its ×2 and ÷2 alternates since a tapped pulse is ambiguous between the beat and its subdivision
+- **Piece Builder** — attach a multi-section tempo/signature roadmap to an exercise (see Scores & Pieces below)
+
+</details>
+
+<details>
+<summary><b>Tuner</b></summary>
+
+<br>
+
+- Chromatic tuner, cents-accurate, covering roughly 40 Hz (E1 — 5-string bass / low cello range) to 2100 Hz (above violin/piccolo range)
+- Live level meter and confidence gating so ambient room noise doesn't register as a false note
+
+</details>
+
+<details>
+<summary><b>Scores & Pieces</b></summary>
+
+<br>
+
+Browsed by category → exercise, mirroring the Manage tree rather than its own separate list — a score or piece is always attached to an exercise, never standalone.
+
+- **Rehearsal Canvas** (the score viewer) — swipe through sheet-music pages with pinch zoom; a vector annotation layer (pen, highlighter, stroke eraser, undo) draws directly on the page and is saved per page; a visibility toggle collapses the sheet to a minimal BPM/measure dashboard for audio-only practice; optional auto page-turns trigger at specific measure numbers as the metronome plays through a linked piece roadmap
+- **Piece player** — plays a piece's full section roadmap (each section its own tempo/signature/subdivision), with a live stat card (BPM, time signature, current measure, section progress), a visual section timeline, and an optional one-measure count-in before the piece starts
+- **Piece editor** — add, reorder, and delete sections; validates that measure ranges are contiguous before allowing a save
+
+</details>
+
+<details>
+<summary><b>Calendar</b></summary>
+
+<br>
+
+- Multi-day events with a title, notes, and color
+- Reminders per event: same day, 1 day before, 1 week before, or a custom date
+- Month view shows events whose date range overlaps each day, not just single-day start dates
+
+</details>
+
+<details>
+<summary><b>Stats</b></summary>
+
+<br>
+
+- Readiness score, average BPM, and streak history over time
+- Per-category and per-exercise breakdowns of goal progress
+
+</details>
+
+<details>
+<summary><b>Settings</b></summary>
+
+<br>
+
+- **Cadence Cloud** — sign in, create an account, or sign out; manual **Back Up Now** / **Restore from Cloud**, plus constant automatic backup once signed in (see below); entirely hidden if cloud is unavailable on this platform/build
+- **Profile** — name and primary instrument
+- **Practice** — default reminder interval for new exercises
+- **Appearance** — light/dark theme
+- **Your Stats** — lifetime totals at a glance
+- **About** — in-app help & guide
+- **Reset all data** — wipes local practice data; deliberately does not touch a cloud backup, so it can't be used to accidentally destroy a backup you'd want to restore from later
+
+</details>
 
 ---
 
