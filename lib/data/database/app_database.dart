@@ -265,6 +265,29 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  // Records that rows were deleted so CloudSyncService.backup() can
+  // propagate the deletion to the cloud (and, later, other devices) —
+  // otherwise a restore would silently resurrect them. Called by
+  // repositories immediately after a delete, with the syncIds of the rows
+  // that just disappeared (selected BEFORE the delete, since afterward
+  // there's nothing left to read them from).
+  //
+  // Deliberately NOT called from bulk "wipe everything" methods
+  // (deleteAll/resetAllData) — that's a deliberate local reset, not
+  // something that should silently also erase (or flood with tombstones)
+  // a cloud backup the user hasn't been asked about.
+  Future<void> tombstone(String table, Iterable<String> syncIds) async {
+    if (syncIds.isEmpty) return;
+    await batch((b) {
+      for (final id in syncIds) {
+        b.insert(
+            syncTombstones,
+            SyncTombstonesCompanion.insert(
+                targetTable: table, rowSyncId: id));
+      }
+    });
+  }
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {

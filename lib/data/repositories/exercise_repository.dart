@@ -136,11 +136,17 @@ class ExerciseRepository {
   }
 
   Future<void> permanentlyDelete(int id) async {
+    final exercise = await getById(id);
     await deleteBpmLogsForExercise(id);
     await deleteNotesForExercise(id);
     await (_db.delete(_db.exercises)..where((e) => e.id.equals(id))).go();
+    if (exercise != null) {
+      await _db.tombstone('exercises', [exercise.syncId]);
+    }
   }
 
+  // Bulk wipe (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAll() {
     return _db.delete(_db.exercises).go();
   }
@@ -171,12 +177,20 @@ class ExerciseRepository {
         );
   }
 
-  Future<void> deleteBpmLogsForExercise(int exerciseId) {
-    return (_db.delete(_db.bpmLogs)
+  Future<void> deleteBpmLogsForExercise(int exerciseId) async {
+    final syncIds = await (_db.selectOnly(_db.bpmLogs)
+          ..addColumns([_db.bpmLogs.syncId])
+          ..where(_db.bpmLogs.exerciseId.equals(exerciseId)))
+        .map((r) => r.read(_db.bpmLogs.syncId)!)
+        .get();
+    await (_db.delete(_db.bpmLogs)
           ..where((b) => b.exerciseId.equals(exerciseId)))
         .go();
+    await _db.tombstone('bpm_logs', syncIds);
   }
 
+  // Bulk wipe (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAllBpmLogs() {
     return _db.delete(_db.bpmLogs).go();
   }
@@ -207,18 +221,30 @@ class ExerciseRepository {
         );
   }
 
-  Future<void> deleteNote(int noteId) {
-    return (_db.delete(_db.exerciseNotes)
+  Future<void> deleteNote(int noteId) async {
+    final note = await (_db.select(_db.exerciseNotes)
+          ..where((n) => n.id.equals(noteId)))
+        .getSingleOrNull();
+    await (_db.delete(_db.exerciseNotes)
           ..where((n) => n.id.equals(noteId)))
         .go();
+    if (note != null) await _db.tombstone('exercise_notes', [note.syncId]);
   }
 
-  Future<void> deleteNotesForExercise(int exerciseId) {
-    return (_db.delete(_db.exerciseNotes)
+  Future<void> deleteNotesForExercise(int exerciseId) async {
+    final syncIds = await (_db.selectOnly(_db.exerciseNotes)
+          ..addColumns([_db.exerciseNotes.syncId])
+          ..where(_db.exerciseNotes.exerciseId.equals(exerciseId)))
+        .map((r) => r.read(_db.exerciseNotes.syncId)!)
+        .get();
+    await (_db.delete(_db.exerciseNotes)
           ..where((n) => n.exerciseId.equals(exerciseId)))
         .go();
+    await _db.tombstone('exercise_notes', syncIds);
   }
 
+  // Bulk wipe (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAllNotes() {
     return _db.delete(_db.exerciseNotes).go();
   }

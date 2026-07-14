@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cadence/domain/services/cloud_sync_service.dart';
+import 'database_provider.dart';
 
 // ── Cadence Cloud availability ────────────────────────────────────────────────
 //
@@ -15,6 +17,15 @@ final cloudAvailableProvider = Provider<bool>((_) => false);
 final authStateProvider = StreamProvider<User?>((ref) {
   if (!ref.watch(cloudAvailableProvider)) return Stream.value(null);
   return FirebaseAuth.instance.authStateChanges();
+});
+
+// CloudSyncService for the CURRENTLY signed-in user — null when signed out,
+// so callers can't accidentally run a backup/restore with no account
+// attached to it.
+final cloudSyncServiceProvider = Provider<CloudSyncService?>((ref) {
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return null;
+  return CloudSyncService(db: ref.watch(databaseProvider), uid: user.uid);
 });
 
 // Thin wrapper so screens never import firebase_auth directly.

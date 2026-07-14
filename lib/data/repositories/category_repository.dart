@@ -46,8 +46,12 @@ class CategoryRepository {
         .write(CategoriesCompanion(name: Value(newName)));
   }
 
-  Future<void> delete(int id) {
-    return (_db.delete(_db.categories)..where((c) => c.id.equals(id))).go();
+  Future<void> delete(int id) async {
+    final category = await getById(id);
+    await (_db.delete(_db.categories)..where((c) => c.id.equals(id))).go();
+    if (category != null) {
+      await _db.tombstone('categories', [category.syncId]);
+    }
   }
 
   // Delete a category and archive its active exercises as a bundle.
@@ -117,12 +121,26 @@ class CategoryRepository {
         .get();
     if (exercises.isNotEmpty) {
       final ids = exercises.map((e) => e.id).toList();
+      final bpmSyncIds = await (_db.selectOnly(_db.bpmLogs)
+            ..addColumns([_db.bpmLogs.syncId])
+            ..where(_db.bpmLogs.exerciseId.isIn(ids)))
+          .map((r) => r.read(_db.bpmLogs.syncId)!)
+          .get();
+      final noteSyncIds = await (_db.selectOnly(_db.exerciseNotes)
+            ..addColumns([_db.exerciseNotes.syncId])
+            ..where(_db.exerciseNotes.exerciseId.isIn(ids)))
+          .map((r) => r.read(_db.exerciseNotes.syncId)!)
+          .get();
       await (_db.delete(_db.bpmLogs)
             ..where((b) => b.exerciseId.isIn(ids)))
           .go();
       await (_db.delete(_db.exerciseNotes)
             ..where((n) => n.exerciseId.isIn(ids)))
           .go();
+      await _db.tombstone('bpm_logs', bpmSyncIds);
+      await _db.tombstone('exercise_notes', noteSyncIds);
+      await _db.tombstone(
+          'exercises', exercises.map((e) => e.syncId));
     }
     await (_db.delete(_db.exercises)
           ..where((e) => e.archivedCategoryBundleId.equals(bundleId)))
@@ -159,12 +177,20 @@ class CategoryRepository {
         );
   }
 
-  Future<void> deleteBundle(int id) {
-    return (_db.delete(_db.archivedCategoryBundles)
+  Future<void> deleteBundle(int id) async {
+    final bundle = await (_db.select(_db.archivedCategoryBundles)
+          ..where((a) => a.id.equals(id)))
+        .getSingleOrNull();
+    await (_db.delete(_db.archivedCategoryBundles)
           ..where((a) => a.id.equals(id)))
         .go();
+    if (bundle != null) {
+      await _db.tombstone('archived_category_bundles', [bundle.syncId]);
+    }
   }
 
+  // Bulk wipes (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAll() {
     return _db.delete(_db.categories).go();
   }
@@ -192,18 +218,30 @@ class CategoryRepository {
         );
   }
 
-  Future<void> deleteNote(int noteId) {
-    return (_db.delete(_db.categoryNotes)
+  Future<void> deleteNote(int noteId) async {
+    final note = await (_db.select(_db.categoryNotes)
+          ..where((n) => n.id.equals(noteId)))
+        .getSingleOrNull();
+    await (_db.delete(_db.categoryNotes)
           ..where((n) => n.id.equals(noteId)))
         .go();
+    if (note != null) await _db.tombstone('category_notes', [note.syncId]);
   }
 
-  Future<void> deleteNotesForCategory(int categoryId) {
-    return (_db.delete(_db.categoryNotes)
+  Future<void> deleteNotesForCategory(int categoryId) async {
+    final syncIds = await (_db.selectOnly(_db.categoryNotes)
+          ..addColumns([_db.categoryNotes.syncId])
+          ..where(_db.categoryNotes.categoryId.equals(categoryId)))
+        .map((r) => r.read(_db.categoryNotes.syncId)!)
+        .get();
+    await (_db.delete(_db.categoryNotes)
           ..where((n) => n.categoryId.equals(categoryId)))
         .go();
+    await _db.tombstone('category_notes', syncIds);
   }
 
+  // Bulk wipe (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAllCategoryNotes() {
     return _db.delete(_db.categoryNotes).go();
   }

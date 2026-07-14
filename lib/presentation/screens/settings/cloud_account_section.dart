@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
@@ -46,30 +47,133 @@ class CloudAccountSection extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showSignInSheet(context),
                 )
-              : Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.cloud_done_outlined,
-                          color: AppColors.success),
-                      title: Text(user.email ?? 'Signed in'),
-                      subtitle: const Text('Connected to Cadence Cloud'),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: Icon(Icons.logout,
-                          color: theme.colorScheme.error),
-                      title: const Text('Sign out'),
-                      onTap: () => _signOut(context),
-                    ),
-                  ],
-                ),
+              : _SignedInPanel(user: user),
         ),
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Future<void> _signOut(BuildContext context) async {
+  void _showSignInSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _SignInSheet(),
+    );
+  }
+}
+
+// ── Signed-in panel: account row + backup/restore ─────────────────────────────
+
+class _SignedInPanel extends ConsumerStatefulWidget {
+  final User user;
+  const _SignedInPanel({required this.user});
+
+  @override
+  ConsumerState<_SignedInPanel> createState() => _SignedInPanelState();
+}
+
+class _SignedInPanelState extends ConsumerState<_SignedInPanel> {
+  bool _busy = false;
+  DateTime? _lastBackupAt;
+  DateTime? _lastRestoreAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimestamps();
+  }
+
+  Future<void> _loadTimestamps() async {
+    final sync = ref.read(cloudSyncServiceProvider);
+    if (sync == null) return;
+    final backup = await sync.lastBackupAt();
+    final restore = await sync.lastRestoreAt();
+    if (!mounted) return;
+    setState(() {
+      _lastBackupAt = backup;
+      _lastRestoreAt = restore;
+    });
+  }
+
+  String _relative(DateTime t) {
+    final diff = DateTime.now().difference(t);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  Future<void> _backup() async {
+    final sync = ref.read(cloudSyncServiceProvider);
+    if (sync == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await sync.backup();
+      await _loadTimestamps();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Backed up to Cadence Cloud.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Backup failed — check your connection and '
+                'try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    final sync = ref.read(cloudSyncServiceProvider);
+    if (sync == null || _busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore from Cloud?'),
+        content: const Text(
+            'Brings in anything backed up from your other devices — your '
+            'newest edits always win, and nothing already on this device '
+            'is ever deleted by a restore.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restore')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final count = await sync.restore();
+      await _loadTimestamps();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Restored $count record${count == 1 ? '' : 's'} '
+            'from Cadence Cloud.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Restore failed — check your connection and '
+                'try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -89,7 +193,7 @@ class CloudAccountSection extends ConsumerWidget {
     );
     if (confirmed != true) return;
     await CloudAuth.signOut();
-    if (!context.mounted) return;
+    if (!mounted) return;
     // Give the user an immediate chance to sign into a different account,
     // or continue on signed-out — mirrors the account step in onboarding.
     Navigator.of(context).push(
@@ -97,14 +201,51 @@ class CloudAccountSection extends ConsumerWidget {
     );
   }
 
-  void _showSignInSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => const _SignInSheet(),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitle = _lastBackupAt != null
+        ? 'Last backed up ${_relative(_lastBackupAt!)}'
+        : 'Connected to Cadence Cloud';
+
+    return Column(
+      children: [
+        ListTile(
+          leading:
+              const Icon(Icons.cloud_done_outlined, color: AppColors.success),
+          title: Text(widget.user.email ?? 'Signed in'),
+          subtitle: Text(subtitle),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: _busy
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(Icons.cloud_upload_outlined,
+                  color: theme.colorScheme.primary),
+          title: const Text('Back Up Now'),
+          subtitle: const Text('Save your practice data to the cloud'),
+          onTap: _busy ? null : _backup,
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: Icon(Icons.cloud_download_outlined,
+              color: theme.colorScheme.primary),
+          title: const Text('Restore from Cloud'),
+          subtitle: Text(_lastRestoreAt != null
+              ? 'Last restored ${_relative(_lastRestoreAt!)}'
+              : 'Bring in data backed up from another device'),
+          onTap: _busy ? null : _restore,
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: Icon(Icons.logout, color: theme.colorScheme.error),
+          title: const Text('Sign out'),
+          onTap: _busy ? null : _signOut,
+        ),
+      ],
     );
   }
 }

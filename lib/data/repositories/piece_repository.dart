@@ -70,16 +70,30 @@ class PieceRepository {
         .write(MetronomePiecesCompanion(modifiedAt: Value(DateTime.now())));
   }
 
-  Future<void> delete(int id) {
-    return _db.transaction(() async {
+  Future<void> delete(int id) async {
+    late List<String> sectionSyncIds;
+    late String? pieceSyncId;
+    await _db.transaction(() async {
+      sectionSyncIds = await (_db.selectOnly(_db.pieceSections)
+            ..addColumns([_db.pieceSections.syncId])
+            ..where(_db.pieceSections.pieceId.equals(id)))
+          .map((r) => r.read(_db.pieceSections.syncId)!)
+          .get();
+      pieceSyncId = (await getById(id))?.syncId;
       await (_db.delete(_db.pieceSections)
             ..where((s) => s.pieceId.equals(id)))
           .go();
       await (_db.delete(_db.metronomePieces)..where((p) => p.id.equals(id)))
           .go();
     });
+    await _db.tombstone('piece_sections', sectionSyncIds);
+    if (pieceSyncId != null) {
+      await _db.tombstone('metronome_pieces', [pieceSyncId!]);
+    }
   }
 
+  // Bulk wipe (full data reset) — deliberately not tombstoned; see
+  // AppDatabase.tombstone.
   Future<void> deleteAll() async {
     await _db.delete(_db.pieceSections).go();
     await _db.delete(_db.metronomePieces).go();
@@ -103,7 +117,13 @@ class PieceRepository {
 
   Future<void> replaceSections(
       int pieceId, List<PieceSectionsCompanion> sections) async {
+    late List<String> oldSyncIds;
     await _db.transaction(() async {
+      oldSyncIds = await (_db.selectOnly(_db.pieceSections)
+            ..addColumns([_db.pieceSections.syncId])
+            ..where(_db.pieceSections.pieceId.equals(pieceId)))
+          .map((r) => r.read(_db.pieceSections.syncId)!)
+          .get();
       await (_db.delete(_db.pieceSections)
             ..where((s) => s.pieceId.equals(pieceId)))
           .go();
@@ -111,6 +131,7 @@ class PieceRepository {
         await _db.into(_db.pieceSections).insert(s);
       }
     });
+    await _db.tombstone('piece_sections', oldSyncIds);
     await touchModified(pieceId);
   }
 
