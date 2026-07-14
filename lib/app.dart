@@ -9,7 +9,21 @@ import 'package:cadence/presentation/providers/database_provider.dart';
 
 final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
   final repo = ref.watch(settingsRepositoryProvider);
-  return repo.isOnboardingComplete();
+  if (await repo.isOnboardingComplete()) return true;
+
+  // Self-heal: a device can end up with the completion flag false while a
+  // real profile already exists — e.g. the app closed between saving the
+  // instrument and flipping the flag, or (as happened during this feature's
+  // own testing) the flag was reset directly. A user who already has a name
+  // and instrument saved has plainly finished setup before; never replay
+  // the welcome flow (and re-ask for a name/instrument it would just
+  // overwrite) just because one flag lagged behind the real data.
+  final settings = await ref.watch(settingsProvider.future);
+  if (settings.firstName.isNotEmpty && settings.instrument.isNotEmpty) {
+    await repo.completeOnboarding();
+    return true;
+  }
+  return false;
 });
 
 class CadenceApp extends ConsumerWidget {
