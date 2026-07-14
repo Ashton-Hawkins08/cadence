@@ -8,7 +8,12 @@ import 'package:cadence/presentation/providers/cloud_provider.dart';
 /// sign-in sheet, the onboarding create-account page, and the post-sign-out
 /// screen. Fixing a bug here fixes it everywhere at once.
 class CloudAuthForm extends StatefulWidget {
-  final VoidCallback onAuthenticated;
+  // wasSignIn: true for "Sign In" (an existing account), false for
+  // "Create Account" (brand new). Callers that care whether this is a
+  // RETURNING user — e.g. onboarding auto-restoring a cloud backup instead
+  // of re-asking questions the cloud already answered — need this; callers
+  // that don't care (the Settings sheet, post-sign-out screen) just ignore it.
+  final void Function({required bool wasSignIn}) onAuthenticated;
   const CloudAuthForm({super.key, required this.onAuthenticated});
 
   @override
@@ -40,6 +45,7 @@ class _CloudAuthFormState extends State<CloudAuthForm> {
       _busy = true;
       _error = null;
     });
+    final wasSignIn = !_creating;
     final error = _creating
         ? await CloudAuth.createAccount(email, password)
         : await CloudAuth.signIn(email, password);
@@ -50,7 +56,7 @@ class _CloudAuthFormState extends State<CloudAuthForm> {
         _error = error;
       });
     } else {
-      widget.onAuthenticated();
+      widget.onAuthenticated(wasSignIn: wasSignIn);
     }
   }
 

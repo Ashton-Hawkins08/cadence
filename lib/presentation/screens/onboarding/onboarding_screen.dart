@@ -99,6 +99,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  // Reached when signing into an EXISTING account during onboarding pulled
+  // down a real profile (see _CreateAccountPage) — the cloud already
+  // answered the Name/Instrument questions, so skip straight past them
+  // instead of asking the user to redundantly retype what a restore just
+  // brought back.
+  Future<void> _finishFromRestoredProfile() async {
+    await ref.read(settingsRepositoryProvider).completeOnboarding();
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const AppShell(),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -138,7 +159,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   _WelcomePage(onNext: _next),
                   if (_cloudAvailable)
-                    _CreateAccountPage(onNext: _next, onSkip: _next),
+                    _CreateAccountPage(
+                      onNext: _next,
+                      onSkip: _next,
+                      onProfileRestored: _finishFromRestoredProfile,
+                    ),
                   _HowItWorksPage(onNext: _next),
                   _NamePage(
                     firstNameController: _firstNameController,
@@ -228,10 +253,59 @@ class _WelcomePage extends StatelessWidget {
 // bonus layer over the local-first app, never a gate. Skipping or a
 // successful sign-in/create-account both just advance to the next page.
 
-class _CreateAccountPage extends StatelessWidget {
+class _CreateAccountPage extends ConsumerStatefulWidget {
   final VoidCallback onNext;
   final VoidCallback onSkip;
-  const _CreateAccountPage({required this.onNext, required this.onSkip});
+  // Called instead of onNext when signing into an EXISTING account pulled
+  // down a real profile — see _onAuthenticated.
+  final VoidCallback onProfileRestored;
+
+  const _CreateAccountPage({
+    required this.onNext,
+    required this.onSkip,
+    required this.onProfileRestored,
+  });
+
+  @override
+  ConsumerState<_CreateAccountPage> createState() =>
+      _CreateAccountPageState();
+}
+
+class _CreateAccountPageState extends ConsumerState<_CreateAccountPage> {
+  bool _restoring = false;
+
+  Future<void> _onAuthenticated({required bool wasSignIn}) async {
+    if (!wasSignIn) {
+      // Brand-new account: nothing to pull down yet.
+      widget.onNext();
+      return;
+    }
+    final sync = ref.read(cloudSyncServiceProvider);
+    if (sync == null) {
+      widget.onNext();
+      return;
+    }
+    // Signing into an account that may already have a backup — pull it down
+    // BEFORE asking for a name/instrument the cloud might already answer.
+    setState(() => _restoring = true);
+    try {
+      await sync.restore();
+    } catch (_) {
+      // Offline, etc. Fall through to normal onboarding — nothing lost,
+      // and the user can retry from Settings once connected.
+    }
+    // The restore writes straight to SharedPreferences; refresh the
+    // provider so its in-memory copy reflects what just landed.
+    ref.invalidate(settingsProvider);
+    final settings = await ref.read(settingsProvider.future);
+    if (!mounted) return;
+    if (settings.firstName.isNotEmpty && settings.instrument.isNotEmpty) {
+      widget.onProfileRestored();
+    } else {
+      setState(() => _restoring = false);
+      widget.onNext();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -265,12 +339,25 @@ class _CreateAccountPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          CloudAuthForm(onAuthenticated: onNext),
-          const SizedBox(height: 4),
-          TextButton(
-            onPressed: onSkip,
-            child: const Text('Skip for now'),
-          ),
+          if (_restoring)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Bringing in your data…'),
+                ],
+              ),
+            )
+          else ...[
+            CloudAuthForm(onAuthenticated: _onAuthenticated),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: widget.onSkip,
+              child: const Text('Skip for now'),
+            ),
+          ],
         ],
       ),
     );

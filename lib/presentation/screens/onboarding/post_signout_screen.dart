@@ -45,7 +45,8 @@ class PostSignOutScreen extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               CloudAuthForm(
-                onAuthenticated: () => Navigator.of(context).pop(),
+                onAuthenticated: ({required wasSignIn}) =>
+                    Navigator.of(context).pop(),
               ),
               const SizedBox(height: 4),
               TextButton(

@@ -252,8 +252,40 @@ class _SignedInPanelState extends ConsumerState<_SignedInPanel> {
 
 // ── Sign-in / create-account sheet ────────────────────────────────────────────
 
-class _SignInSheet extends StatelessWidget {
+class _SignInSheet extends ConsumerStatefulWidget {
   const _SignInSheet();
+
+  @override
+  ConsumerState<_SignInSheet> createState() => _SignInSheetState();
+}
+
+class _SignInSheetState extends ConsumerState<_SignInSheet> {
+  bool _restoring = false;
+
+  Future<void> _onAuthenticated({required bool wasSignIn}) async {
+    if (!wasSignIn) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    // Signing into an EXISTING account: pull down whatever is backed up
+    // before closing the sheet, so "sign in" actually means "my data is
+    // here" rather than leaving the user to discover the separate Restore
+    // button themselves.
+    final sync = ref.read(cloudSyncServiceProvider);
+    if (sync == null) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    setState(() => _restoring = true);
+    try {
+      await sync.restore();
+    } catch (_) {
+      // Offline, etc. — sign-in already succeeded; the user can retry the
+      // restore manually from Settings. Don't strand them on this sheet.
+    }
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +315,19 @@ class _SignInSheet extends StatelessWidget {
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 20),
-          CloudAuthForm(onAuthenticated: () => Navigator.pop(context)),
+          if (_restoring)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Bringing in your data…'),
+                ],
+              ),
+            )
+          else
+            CloudAuthForm(onAuthenticated: _onAuthenticated),
         ],
       ),
     );
