@@ -19,6 +19,7 @@ Cadence is an all-in-one practice assistant for musicians, built with Flutter. I
 
 ### Contents
 
+- [Screenshots](#screenshots)
 - [Why Cadence](#why-cadence)
 - [Why a Musician Needs This](#why-a-musician-needs-this)
 - [Core Features](#core-features)
@@ -26,6 +27,23 @@ Cadence is an all-in-one practice assistant for musicians, built with Flutter. I
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td width="33%"><img src="docs/screenshots/home.png" alt="Home dashboard — readiness score, average BPM, streak, recent sessions, reminders"></td>
+<td width="33%"><img src="docs/screenshots/metronome.png" alt="Metronome — BPM, all time signatures, subdivisions, Blind Randomizer and Cognitive Break training modes"></td>
+<td width="33%"><img src="docs/screenshots/tuner.png" alt="Chromatic tuner — live pitch, cents offset, note name"></td>
+</tr>
+<tr>
+<td width="33%"><img src="docs/screenshots/log_session.png" alt="Log Session — three-tap practice logging"></td>
+<td width="33%"><img src="docs/screenshots/stats.png" alt="Stats — readiness score, streak, session and minute totals"></td>
+<td width="33%"><img src="docs/screenshots/settings.png" alt="Settings — theme, lifetime stats, about"></td>
+</tr>
+</table>
 
 ---
 
