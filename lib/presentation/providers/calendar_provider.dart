@@ -24,11 +24,19 @@ final monthEventsProvider = Provider<List<CalendarEvent>>((ref) {
   final lastDay = DateTime.utc(month.year, month.month + 1, 0, 23, 59, 59);
 
   return allEvents.where((e) {
-    // Use UTC year/month/day directly — toLocal() would shift UTC midnight
-    // back one day in negative-offset timezones, excluding events from the
-    // correct month.
-    final startUtc = DateTime.utc(e.startDate.year, e.startDate.month, e.startDate.day);
-    final endUtc   = DateTime.utc(e.endDate.year,   e.endDate.month,   e.endDate.day, 23, 59, 59);
+    // Events are stored as DateTime.utc(...) (see create_event_screen.dart),
+    // but Drift reconstructs DateTime columns via
+    // DateTime.fromMillisecondsSinceEpoch (local, isUtc:false) on read — so
+    // e.startDate here is really "that UTC instant, mislabeled as local."
+    // .toUtc() converts it back to a genuinely UTC-flagged DateTime for the
+    // SAME instant, which recovers the original stored calendar date.
+    // Reading .year/.month/.day directly off e.startDate without that
+    // conversion first reads the instant's *local* wall-clock date, which
+    // in any negative-UTC-offset timezone is one day earlier than intended.
+    final startAsUtc = e.startDate.toUtc();
+    final endAsUtc = e.endDate.toUtc();
+    final startUtc = DateTime.utc(startAsUtc.year, startAsUtc.month, startAsUtc.day);
+    final endUtc   = DateTime.utc(endAsUtc.year,   endAsUtc.month,   endAsUtc.day, 23, 59, 59);
     return startUtc.isBefore(lastDay) && endUtc.isAfter(firstDay);
   }).toList();
 });
@@ -41,8 +49,12 @@ final upcomingEventsProvider = Provider<List<CalendarEvent>>((ref) {
   final cutoff = todayUtc.add(const Duration(days: 30));
 
   return allEvents.where((e) {
-    final endUtc   = DateTime.utc(e.endDate.year,   e.endDate.month,   e.endDate.day);
-    final startUtc = DateTime.utc(e.startDate.year, e.startDate.month, e.startDate.day);
+    // See monthEventsProvider above — .toUtc() first is required to recover
+    // the stored calendar date; reading raw components reads one day early.
+    final endAsUtc = e.endDate.toUtc();
+    final startAsUtc = e.startDate.toUtc();
+    final endUtc   = DateTime.utc(endAsUtc.year,   endAsUtc.month,   endAsUtc.day);
+    final startUtc = DateTime.utc(startAsUtc.year, startAsUtc.month, startAsUtc.day);
     return endUtc.isAfter(todayUtc.subtract(const Duration(days: 1))) &&
         startUtc.isBefore(cutoff);
   }).toList()
@@ -79,7 +91,7 @@ final calendarRemindersProvider = Provider<List<CalendarReminderItem>>((ref) {
   final allReminders = ref.watch(_allEventRemindersProvider).valueOrNull ?? [];
 
   final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+  final today = DateTime.utc(now.year, now.month, now.day);
   final eventMap = {for (final e in allEvents) e.id: e};
   final Map<int, CalendarReminderItem> activeItems = {};
 
@@ -87,17 +99,23 @@ final calendarRemindersProvider = Provider<List<CalendarReminderItem>>((ref) {
     final event = eventMap[reminder.eventId];
     if (event == null) continue;
 
-    // Extract UTC year/month/day directly — toLocal() would shift UTC
-    // midnight back one day in negative-offset timezones.
-    final eventEnd   = DateTime(event.endDate.year,   event.endDate.month,   event.endDate.day);
-    final eventStart = DateTime(event.startDate.year, event.startDate.month, event.startDate.day);
+    // .toUtc() first, THEN read components — see monthEventsProvider above
+    // for why. (Wrapping the raw, un-converted components in DateTime.utc()
+    // does NOT fix this: it just relabels the already-shifted day as UTC
+    // instead of correcting it, which is what silently undercounted every
+    // reminder by a day — e.g. showing "Today" for an event that was
+    // genuinely still 2 days out.)
+    final eventEndAsUtc = event.endDate.toUtc();
+    final eventStartAsUtc = event.startDate.toUtc();
+    final eventEnd   = DateTime.utc(eventEndAsUtc.year,   eventEndAsUtc.month,   eventEndAsUtc.day);
+    final eventStart = DateTime.utc(eventStartAsUtc.year, eventStartAsUtc.month, eventStartAsUtc.day);
 
     if (eventEnd.isBefore(today)) continue; // event already over
 
     DateTime fireDate;
     if (reminder.daysBefore == -1 && reminder.customDate != null) {
-      final cd = reminder.customDate!;
-      fireDate = DateTime(cd.year, cd.month, cd.day);
+      final cdAsUtc = reminder.customDate!.toUtc();
+      fireDate = DateTime.utc(cdAsUtc.year, cdAsUtc.month, cdAsUtc.day);
     } else if (reminder.daysBefore >= 0) {
       fireDate = eventStart.subtract(Duration(days: reminder.daysBefore));
     } else {

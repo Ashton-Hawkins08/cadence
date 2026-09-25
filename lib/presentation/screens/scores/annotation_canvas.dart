@@ -65,6 +65,18 @@ class AnnotationCanvas extends StatefulWidget {
 
 class _AnnotationCanvasState extends State<AnnotationCanvas> {
   List<double>? _inProgress; // normalized points of the stroke being drawn
+  final _canvasKey = GlobalKey();
+
+  // Read lazily at gesture time rather than via LayoutBuilder: gestures can
+  // only fire after the canvas has already been laid out and is visible on
+  // screen, so the render box is always valid here — and unlike
+  // LayoutBuilder, nothing re-enters layout to get it. That distinction
+  // matters under DevicePreview's own live frame resizing, which raced this
+  // LayoutBuilder's rebuild against its own re-layout
+  // ("_RenderLayoutBuilder was mutated").
+  Size get _size =>
+      (_canvasKey.currentContext?.findRenderObject() as RenderBox?)?.size ??
+      Size.zero;
 
   Offset _normalize(Offset local, Size size) => Offset(
         (local.dx / size.width).clamp(0.0, 1.0),
@@ -83,63 +95,59 @@ class _AnnotationCanvasState extends State<AnnotationCanvas> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
-        return GestureDetector(
-          behavior: widget.drawEnabled
-              ? HitTestBehavior.opaque
-              : HitTestBehavior.translucent,
-          onPanStart: !widget.drawEnabled
-              ? null
-              : (d) {
-                  final n = _normalize(d.localPosition, size);
-                  if (widget.config.eraser) {
-                    _erase(n);
-                  } else {
-                    setState(() => _inProgress = [n.dx, n.dy]);
-                  }
-                },
-          onPanUpdate: !widget.drawEnabled
-              ? null
-              : (d) {
-                  final n = _normalize(d.localPosition, size);
-                  if (widget.config.eraser) {
-                    _erase(n);
-                  } else if (_inProgress != null) {
-                    setState(() => _inProgress!..addAll([n.dx, n.dy]));
-                  }
-                },
-          onPanEnd: !widget.drawEnabled
-              ? null
-              : (_) {
-                  final pts = _inProgress;
-                  _inProgress = null;
-                  if (pts == null || pts.length < 4) {
-                    setState(() {});
-                    return;
-                  }
-                  widget.onChanged([
-                    ...widget.strokes,
-                    ScoreStroke(
-                      tool: widget.config.tool,
-                      colorValue: widget.config.color.toARGB32(),
-                      width: widget.config.effectiveWidth,
-                      opacity: widget.config.effectiveOpacity,
-                      points: pts,
-                    ),
-                  ]);
-                },
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: _StrokesPainter(
-              strokes: widget.strokes,
-              inProgress: _inProgress,
-              config: widget.config,
-            ),
-          ),
-        );
-      },
+    return GestureDetector(
+      key: _canvasKey,
+      behavior: widget.drawEnabled
+          ? HitTestBehavior.opaque
+          : HitTestBehavior.translucent,
+      onPanStart: !widget.drawEnabled
+          ? null
+          : (d) {
+              final n = _normalize(d.localPosition, _size);
+              if (widget.config.eraser) {
+                _erase(n);
+              } else {
+                setState(() => _inProgress = [n.dx, n.dy]);
+              }
+            },
+      onPanUpdate: !widget.drawEnabled
+          ? null
+          : (d) {
+              final n = _normalize(d.localPosition, _size);
+              if (widget.config.eraser) {
+                _erase(n);
+              } else if (_inProgress != null) {
+                setState(() => _inProgress!..addAll([n.dx, n.dy]));
+              }
+            },
+      onPanEnd: !widget.drawEnabled
+          ? null
+          : (_) {
+              final pts = _inProgress;
+              _inProgress = null;
+              if (pts == null || pts.length < 4) {
+                setState(() {});
+                return;
+              }
+              widget.onChanged([
+                ...widget.strokes,
+                ScoreStroke(
+                  tool: widget.config.tool,
+                  colorValue: widget.config.color.toARGB32(),
+                  width: widget.config.effectiveWidth,
+                  opacity: widget.config.effectiveOpacity,
+                  points: pts,
+                ),
+              ]);
+            },
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: _StrokesPainter(
+          strokes: widget.strokes,
+          inProgress: _inProgress,
+          config: widget.config,
+        ),
+      ),
     );
   }
 }

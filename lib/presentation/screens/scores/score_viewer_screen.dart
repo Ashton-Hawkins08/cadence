@@ -777,50 +777,58 @@ class _TurnEditorSheetState extends ConsumerState<_TurnEditorSheet> {
               ),
             ),
             const Divider(height: 1),
-            // Add trigger row
+            // Add trigger row — the "Add" button gets its own line below the
+            // fields rather than sharing a Row with them, so this never
+            // overflows on narrow phone widths regardless of how much space
+            // the measure field, arrow, and page dropdown need.
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: 110,
-                    child: TextField(
-                      controller: _measureCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Measure',
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Icon(Icons.arrow_forward, size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _targetPage,
-                      isDense: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Page',
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        for (var i = 0; i < widget.pages.length; i++)
-                          DropdownMenuItem(
-                            value: i,
-                            child: Text(
-                              '${i + 1} · ${widget.pages[i].name}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 90,
+                        child: TextField(
+                          controller: _measureCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Measure',
+                            isDense: true,
+                            border: OutlineInputBorder(),
                           ),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _targetPage = v ?? 0),
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: _targetPage,
+                          isDense: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Page',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            for (var i = 0; i < widget.pages.length; i++)
+                              DropdownMenuItem(
+                                value: i,
+                                child: Text(
+                                  '${i + 1} · ${widget.pages[i].name}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _targetPage = v ?? 0),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 10),
                   FilledButton(
                     style: FilledButton.styleFrom(
                         backgroundColor: AppColors.indigoNavy,

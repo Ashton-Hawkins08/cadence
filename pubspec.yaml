@@ -40,9 +40,11 @@ dependencies:
   record: ^7.1.1
   # Sheet music page import
   image_picker: ^1.2.3
-  firebase_core: ^4.11.0
-  firebase_auth: ^6.5.4
-  cloud_firestore: ^6.6.0
+  # Opens the hosted Privacy Policy / Terms of Service pages from Settings
+  url_launcher: ^6.3.1
+
+  # Debug-only device frame preview (see main.dart — gated behind kDebugMode)
+  device_preview: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -50,8 +52,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.12
   drift_dev: ^2.18.0
-  fake_cloud_firestore: ^4.1.1
-  firebase_auth_mocks: ^0.15.2
   fake_async: ^1.3.3
 
 flutter:

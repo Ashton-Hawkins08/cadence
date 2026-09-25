@@ -235,13 +235,10 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 9;
 
-  // The tables CloudSyncService actually pushes/pulls (mirrors its own
-  // table-by-table scope — see cloud_sync_service.dart's class doc for why
-  // the sheet-music vault is excluded). Exposed as real TableInfo objects
-  // so AutoBackupCoordinator can listen for changes via Drift's own
-  // tableUpdates() stream instead of every repository having to remember to
-  // separately signal "something changed" — the same class of gap that,
-  // forgotten, silently broke deletion sync until it was caught and fixed.
+  // Leftover from the removed Cadence Cloud sync layer (see git history) —
+  // no longer read by anything. Left in place rather than torn out because
+  // removing the underlying syncId/tombstone schema below would need a new
+  // migration for no functional benefit.
   List<TableInfo> get cloudSyncedTables => [
         categories,
         archivedCategoryBundles,

@@ -7,6 +7,7 @@ import 'package:cadence/presentation/providers/categories_provider.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
 import 'package:cadence/presentation/providers/exercises_provider.dart';
 import 'package:cadence/presentation/providers/piece_provider.dart';
+import 'package:cadence/presentation/providers/score_provider.dart';
 import 'package:intl/intl.dart';
 
 // Wraps the chosen categoryId so we can distinguish "Uncategorized" (null)
@@ -373,6 +374,18 @@ class _ExerciseArchiveTab extends ConsumerWidget {
     ctrl.dispose();
 
     if (confirmed && context.mounted) {
+      // permanentlyDelete only cleans up the exercise's own BPM logs/notes —
+      // its linked sheet music and piece map live in separate tables with
+      // no cascade, so without this they'd survive forever as orphans in
+      // the Scores & Pieces browser under "Not linked to an exercise" with
+      // no way to reach or remove them once the exercise is gone.
+      final scoreRepo = ref.read(scoreRepositoryProvider);
+      final folder = await scoreRepo.getFolderForExercise(ex.id);
+      if (folder != null) await scoreRepo.deleteFolder(folder.id);
+      final pieceRepo = ref.read(pieceRepositoryProvider);
+      final piece = await pieceRepo.getPieceForExercise(ex.id);
+      if (piece != null) await pieceRepo.delete(piece.id);
+
       await ref
           .read(exerciseRepositoryProvider)
           .permanentlyDelete(ex.id);
@@ -468,8 +481,8 @@ class _BundleArchiveTab extends ConsumerWidget {
                   icon: const Icon(Icons.delete_outline,
                       color: AppColors.error),
                   tooltip: 'Delete bundle permanently',
-                  onPressed: () =>
-                      _confirmDeleteBundle(context, ref, bundle),
+                  onPressed: () => _confirmDeleteBundle(
+                      context, ref, bundle, bundleExercises),
                 ),
               ],
             ),
@@ -528,6 +541,7 @@ class _BundleArchiveTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ArchivedCategoryBundle bundle,
+    List<Exercise> bundleExercises,
   ) async {
     final ctrl = TextEditingController();
     bool confirmed = false;
@@ -583,6 +597,18 @@ class _BundleArchiveTab extends ConsumerWidget {
     ctrl.dispose();
 
     if (confirmed && context.mounted) {
+      // Same gap as the single-exercise delete above: deleteBundleWithExercises
+      // cleans up BPM logs/notes but not each exercise's linked sheet music
+      // or piece map, which would otherwise survive as orphans.
+      final scoreRepo = ref.read(scoreRepositoryProvider);
+      final pieceRepo = ref.read(pieceRepositoryProvider);
+      for (final ex in bundleExercises) {
+        final folder = await scoreRepo.getFolderForExercise(ex.id);
+        if (folder != null) await scoreRepo.deleteFolder(folder.id);
+        final piece = await pieceRepo.getPieceForExercise(ex.id);
+        if (piece != null) await pieceRepo.delete(piece.id);
+      }
+
       await ref
           .read(categoryRepositoryProvider)
           .deleteBundleWithExercises(bundle.id);

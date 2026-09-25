@@ -474,7 +474,7 @@ class _LegacyGroup extends ConsumerWidget {
               for (final f in folders)
                 ListTile(
                   dense: true,
-                  contentPadding: const EdgeInsets.only(left: 28, right: 16),
+                  contentPadding: const EdgeInsets.only(left: 28, right: 8),
                   leading: const Icon(Icons.menu_book_outlined, size: 18),
                   title: Text(
                     f.name,
@@ -483,6 +483,11 @@ class _LegacyGroup extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium,
                   ),
                   subtitle: Text('score', style: theme.textTheme.labelSmall),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    tooltip: 'Delete',
+                    onPressed: () => _confirmDeleteFolder(context, ref, f),
+                  ),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -493,7 +498,7 @@ class _LegacyGroup extends ConsumerWidget {
               for (final p in pieces)
                 ListTile(
                   dense: true,
-                  contentPadding: const EdgeInsets.only(left: 28, right: 16),
+                  contentPadding: const EdgeInsets.only(left: 28, right: 8),
                   leading: const Icon(Icons.timeline_outlined, size: 18),
                   title: Text(
                     p.title,
@@ -502,6 +507,11 @@ class _LegacyGroup extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium,
                   ),
                   subtitle: Text('piece', style: theme.textTheme.labelSmall),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    tooltip: 'Delete',
+                    onPressed: () => _confirmDeletePiece(context, ref, p),
+                  ),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -515,5 +525,59 @@ class _LegacyGroup extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteFolder(
+      BuildContext context, WidgetRef ref, ScoreFolder folder) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Score?'),
+        content: Text(
+            '"${folder.name}" and its pages will be permanently deleted. '
+            'This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(scoreRepositoryProvider).deleteFolder(folder.id);
+    }
+  }
+
+  Future<void> _confirmDeletePiece(
+      BuildContext context, WidgetRef ref, MetronomePiece piece) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Piece?'),
+        content: Text(
+            '"${piece.title}" and its sections will be permanently deleted. '
+            'This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(pieceRepositoryProvider).delete(piece.id);
+    }
   }
 }

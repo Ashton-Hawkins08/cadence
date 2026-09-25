@@ -117,10 +117,17 @@ class _OverviewTab extends ConsumerWidget {
 
         const SizedBox(height: 16),
 
-        LayoutBuilder(
-          builder: (ctx, constraints) {
+        Builder(
+          builder: (ctx) {
             // Keep each stat cell ≈110 px tall regardless of screen width.
-            final cellWidth = (constraints.maxWidth - 12) / 2;
+            // Reads MediaQuery directly instead of nesting a LayoutBuilder —
+            // the ListView above uses a fixed 16px page padding on each
+            // side, so screen width minus that padding is exactly this
+            // grid's available width. A LayoutBuilder here is unnecessary
+            // and, under DevicePreview's live device-frame resizing, could
+            // race its own re-layout ("_RenderLayoutBuilder was mutated").
+            final availableWidth = MediaQuery.sizeOf(ctx).width - 32;
+            final cellWidth = (availableWidth - 12) / 2;
             final aspectRatio = cellWidth / 110.0;
             return GridView.count(
               crossAxisCount: 2,

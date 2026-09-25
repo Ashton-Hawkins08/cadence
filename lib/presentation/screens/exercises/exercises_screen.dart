@@ -18,18 +18,6 @@ class ExercisesScreen extends ConsumerStatefulWidget {
 class _ExercisesScreenState extends ConsumerState<ExercisesScreen> {
   String _search = '';
 
-  PageRouteBuilder _slide(Widget page) => PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, animation, __, child) => SlideTransition(
-          position: Tween<Offset>(
-                  begin: const Offset(1.0, 0.0), end: Offset.zero)
-              .animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
-        transitionDuration: const Duration(milliseconds: 280),
-      );
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -44,7 +32,10 @@ class _ExercisesScreenState extends ConsumerState<ExercisesScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
-            context, _slide(AddExerciseScreen(categories: categories))),
+            context,
+            MaterialPageRoute(
+                builder: (_) =>
+                    AddExerciseScreen(categories: categories))),
         backgroundColor: theme.colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -114,10 +105,12 @@ class _ExercisesScreenState extends ConsumerState<ExercisesScreen> {
                         exercise: ex,
                         onEdit: () => Navigator.push(
                           context,
-                          _slide(EditExerciseScreen(
-                            exercise: ex,
-                            categories: categories,
-                          )),
+                          MaterialPageRoute(
+                            builder: (_) => EditExerciseScreen(
+                              exercise: ex,
+                              categories: categories,
+                            ),
+                          ),
                         ),
                       ),
                     );

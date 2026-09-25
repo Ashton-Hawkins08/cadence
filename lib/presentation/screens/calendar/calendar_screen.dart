@@ -477,18 +477,23 @@ class _EventListTile extends StatelessWidget {
     final color =
         EventColors.fromValue(event.colorValue) ?? theme.colorScheme.primary;
 
-    // Dates are stored as UTC midnight; extract the UTC year/month/day directly
-    // rather than calling toLocal(), which shifts midnight back one day in
-    // negative-offset timezones (e.g. Jun 21 00:00 UTC → Jun 20 in UTC-5).
+    // Dates are stored as UTC midnight, but Drift reconstructs DateTime
+    // columns as local (isUtc:false) on read — .toUtc() first recovers the
+    // real stored instant before reading its calendar-date components.
+    // Reading .year/.month/.day directly (as this used to do) reads the
+    // instant's *local* wall-clock date, one day early in negative-UTC-offset
+    // timezones (e.g. Jun 21 00:00 UTC round-trips to local Jun 20 evening).
+    final startAsUtc = event.startDate.toUtc();
+    final endAsUtc = event.endDate.toUtc();
     final start = DateTime(
-      event.startDate.year,
-      event.startDate.month,
-      event.startDate.day,
+      startAsUtc.year,
+      startAsUtc.month,
+      startAsUtc.day,
     );
     final end = DateTime(
-      event.endDate.year,
-      event.endDate.month,
-      event.endDate.day,
+      endAsUtc.year,
+      endAsUtc.month,
+      endAsUtc.day,
     );
     final isSingleDay =
         start.year == end.year &&
@@ -591,13 +596,15 @@ class _EventDetailScreenState extends ConsumerState<_EventDetailScreen> {
     final color =
         EventColors.fromValue(ev.colorValue) ?? theme.colorScheme.primary;
 
-    // Same UTC-midnight extraction as _EventListTile — avoid toLocal() rollback.
+    // Same .toUtc()-first extraction as _EventListTile above.
+    final startAsUtc = ev.startDate.toUtc();
+    final endAsUtc = ev.endDate.toUtc();
     final start = DateTime(
-      ev.startDate.year,
-      ev.startDate.month,
-      ev.startDate.day,
+      startAsUtc.year,
+      startAsUtc.month,
+      startAsUtc.day,
     );
-    final end = DateTime(ev.endDate.year, ev.endDate.month, ev.endDate.day);
+    final end = DateTime(endAsUtc.year, endAsUtc.month, endAsUtc.day);
     final isSingleDay =
         start.year == end.year &&
         start.month == end.month &&

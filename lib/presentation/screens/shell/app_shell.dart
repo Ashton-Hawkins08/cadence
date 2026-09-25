@@ -366,7 +366,8 @@ class _ManageSheet extends StatelessWidget {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                    _slide(const CategoryExercisesScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const CategoryExercisesScreen()),
                   );
                 },
               ),
@@ -375,7 +376,8 @@ class _ManageSheet extends StatelessWidget {
                 label: 'Practice History',
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(context, _slide(const HistoryScreen()));
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const HistoryScreen()));
                 },
               ),
               _ManageOption(
@@ -383,7 +385,8 @@ class _ManageSheet extends StatelessWidget {
                 label: 'Archive',
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(context, _slide(const ArchiveScreen()));
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ArchiveScreen()));
                 },
               ),
               const SizedBox(height: 16),
@@ -391,20 +394,6 @@ class _ManageSheet extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  PageRouteBuilder _slide(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero)
-            .animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-            ),
-        child: child,
-      ),
-      transitionDuration: const Duration(milliseconds: 280),
     );
   }
 }

@@ -44,11 +44,16 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     if (ev != null) _loadExistingReminders(ev.id);
   }
 
-  // Dates are stored as UTC midnight; extract the UTC year/month/day directly.
-  // Calling toLocal() first would roll back midnight to the previous evening
-  // in negative-offset timezones, showing and re-saving the wrong date.
-  DateTime _toLocalMidnight(DateTime dt) =>
-      DateTime(dt.year, dt.month, dt.day);
+  // Dates are stored as UTC midnight, but Drift reconstructs DateTime
+  // columns as local (isUtc:false) on read, so dt here is really that UTC
+  // instant mislabeled as local. .toUtc() first recovers the genuine stored
+  // instant; reading .year/.month/.day without it reads the instant's
+  // *local* wall-clock date — one day early in negative-UTC-offset
+  // timezones — which would show and then re-save the wrong date on edit.
+  DateTime _toLocalMidnight(DateTime dt) {
+    final utc = dt.toUtc();
+    return DateTime(utc.year, utc.month, utc.day);
+  }
 
   Future<void> _loadExistingReminders(int eventId) async {
     final reminders = await ref
@@ -83,6 +88,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       initialDate: initial,
       firstDate: first,
       lastDate: last,
+      useRootNavigator: false,
     );
     if (picked == null) return;
     setState(() {
@@ -383,6 +389,7 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
       initialDate: _customDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2050, 12, 31),
+      useRootNavigator: false,
     );
     if (picked != null && mounted) setState(() => _customDate = picked);
   }

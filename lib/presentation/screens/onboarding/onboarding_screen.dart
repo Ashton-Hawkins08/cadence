@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/domain/validators/name_validator.dart';
-import 'package:cadence/presentation/providers/cloud_provider.dart';
 import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
-import 'package:cadence/presentation/screens/settings/cloud_auth_form.dart';
 import 'package:cadence/presentation/screens/shell/app_shell.dart';
 import 'package:cadence/presentation/widgets/common/centered_scroll_page.dart';
 
@@ -28,21 +26,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _instrumentKey = GlobalKey<FormState>();
   bool _saving = false;
 
-  // Cloud availability is fixed for the app's whole run (set once in main()
-  // before runApp), so reading it once here is safe and avoids recomputing
-  // page indices on every rebuild.
-  late final bool _cloudAvailable;
-  late final int _namePageIndex;
-  late final int _pageCount;
-
-  @override
-  void initState() {
-    super.initState();
-    _cloudAvailable = ref.read(cloudAvailableProvider);
-    // Page order: Welcome, [Create Account], How It Works, Name, Instrument.
-    _namePageIndex = _cloudAvailable ? 3 : 2;
-    _pageCount = _cloudAvailable ? 5 : 4;
-  }
+  // Page order: Welcome, How It Works, Name, Instrument.
+  static const _namePageIndex = 2;
+  static const _pageCount = 4;
 
   @override
   void dispose() {
@@ -99,31 +85,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  // Reached when signing into an EXISTING account during onboarding pulled
-  // down a real profile (see _CreateAccountPage) — the cloud already
-  // answered the Name/Instrument questions, so skip straight past them
-  // instead of asking the user to redundantly retype what a restore just
-  // brought back. Same reasoning applies to the separate 5-step tutorial
-  // card (Home screen) — a device that just restored real practice data
-  // belongs to a returning user, not someone who needs the app explained.
-  Future<void> _finishFromRestoredProfile() async {
-    final repo = ref.read(settingsRepositoryProvider);
-    await repo.completeOnboarding();
-    await repo.completeTutorial();
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const AppShell(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -162,12 +123,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
                   _WelcomePage(onNext: _next),
-                  if (_cloudAvailable)
-                    _CreateAccountPage(
-                      onNext: _next,
-                      onSkip: _next,
-                      onProfileRestored: _finishFromRestoredProfile,
-                    ),
                   _HowItWorksPage(onNext: _next),
                   _NamePage(
                     firstNameController: _firstNameController,
@@ -250,134 +205,7 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
-// ── Page 2 (conditional): Create Account ──────────────────────────────────────
-//
-// Only included in the page list when Cadence Cloud is available (see
-// _cloudAvailable in _OnboardingScreenState). Always skippable — cloud is a
-// bonus layer over the local-first app, never a gate. Skipping or a
-// successful sign-in/create-account both just advance to the next page.
-
-class _CreateAccountPage extends ConsumerStatefulWidget {
-  final VoidCallback onNext;
-  final VoidCallback onSkip;
-  // Called instead of onNext when signing into an EXISTING account pulled
-  // down a real profile — see _onAuthenticated.
-  final VoidCallback onProfileRestored;
-
-  const _CreateAccountPage({
-    required this.onNext,
-    required this.onSkip,
-    required this.onProfileRestored,
-  });
-
-  @override
-  ConsumerState<_CreateAccountPage> createState() =>
-      _CreateAccountPageState();
-}
-
-class _CreateAccountPageState extends ConsumerState<_CreateAccountPage> {
-  bool _restoring = false;
-
-  Future<void> _onAuthenticated({required bool wasSignIn}) async {
-    if (!wasSignIn) {
-      // Brand-new account: nothing to pull down yet.
-      widget.onNext();
-      return;
-    }
-    // currentUserCloudSync reads FirebaseAuth.instance.currentUser directly
-    // rather than the reactive cloudSyncServiceProvider: that provider
-    // depends on authStateChanges(), a STREAM that can still be carrying
-    // the pre-sign-in (signed-out) value for a moment after this callback
-    // fires — reading it here risked silently skipping the restore
-    // entirely and falling through as if this were a brand-new account,
-    // which is exactly the bug this page exists to fix.
-    final sync = currentUserCloudSync(ref);
-    if (sync == null) {
-      widget.onNext();
-      return;
-    }
-    // Signing into an account that may already have a backup — pull it down
-    // BEFORE asking for a name/instrument the cloud might already answer.
-    setState(() => _restoring = true);
-    var restored = false;
-    try {
-      await sync.restore();
-      // The restore writes straight to SharedPreferences; refresh the
-      // provider so its in-memory copy reflects what just landed.
-      ref.invalidate(settingsProvider);
-      final settings = await ref.read(settingsProvider.future);
-      restored = settings.firstName.isNotEmpty && settings.instrument.isNotEmpty;
-    } catch (_) {
-      // Offline, etc. Fall through to normal onboarding — nothing lost,
-      // and the user can retry from Settings once connected.
-    }
-    if (!mounted) return;
-    if (restored) {
-      widget.onProfileRestored();
-    } else {
-      setState(() => _restoring = false);
-      widget.onNext();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return CenteredScrollPage(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Icon(Icons.cloud_outlined,
-              size: 64, color: theme.colorScheme.primary),
-          const SizedBox(height: 24),
-          Text(
-            'Back up your progress',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a free Cadence Cloud account to back up your practice '
-            'data and pick up right where you left off on another device. '
-            'You can always do this later from Settings.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.lightTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 28),
-          if (_restoring)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('Bringing in your data…'),
-                ],
-              ),
-            )
-          else ...[
-            CloudAuthForm(onAuthenticated: _onAuthenticated),
-            const SizedBox(height: 4),
-            TextButton(
-              onPressed: widget.onSkip,
-              child: const Text('Skip for now'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Page 3: How It Works ───────────────────────────────────────────────────────
+// ── Page 2: How It Works ───────────────────────────────────────────────────────
 
 class _HowItWorksPage extends StatelessWidget {
   final VoidCallback onNext;
@@ -469,7 +297,7 @@ class _Step extends StatelessWidget {
   }
 }
 
-// ── Page 4: Name ───────────────────────────────────────────────────────────────
+// ── Page 3: Name ───────────────────────────────────────────────────────────────
 
 class _NamePage extends StatelessWidget {
   final TextEditingController firstNameController;
@@ -548,7 +376,7 @@ class _NamePage extends StatelessWidget {
   }
 }
 
-// ── Page 5: Instrument ─────────────────────────────────────────────────────────
+// ── Page 4: Instrument ─────────────────────────────────────────────────────────
 
 class _InstrumentPage extends StatelessWidget {
   final TextEditingController controller;

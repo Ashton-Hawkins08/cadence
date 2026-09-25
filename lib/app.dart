@@ -1,3 +1,4 @@
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/screens/shell/app_shell.dart';
 import 'package:cadence/presentation/screens/onboarding/onboarding_screen.dart';
 import 'package:cadence/presentation/providers/database_provider.dart';
-import 'package:cadence/domain/services/auto_backup_coordinator.dart';
 
 final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
   final repo = ref.watch(settingsRepositoryProvider);
@@ -40,6 +40,8 @@ class CadenceApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      locale: DevicePreview.locale(context),
+      useInheritedMediaQuery: true,
       // Several screens (metronome BPM display, bottom nav labels) use large
       // or tightly-packed fixed layouts that aren't designed to reflow.
       // Uncapped system font scaling (accessibility "large text" settings)
@@ -47,11 +49,14 @@ class CadenceApp extends ConsumerWidget {
       // it rather than redesigning every layout to survive 2–3x text.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        return MediaQuery(
-          data: mq.copyWith(
-            textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3),
+        return DevicePreview.appBuilder(
+          context,
+          MediaQuery(
+            data: mq.copyWith(
+              textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3),
+            ),
+            child: child!,
           ),
-          child: child!,
         );
       },
       home: const _AppRoot(),
@@ -65,12 +70,6 @@ class _AppRoot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (kIsWeb) return const _WebUnsupportedScreen();
-
-    // Constructs (once) and keeps alive the "constant backup" coordinator
-    // for the app's whole run — see auto_backup_coordinator.dart. A plain
-    // Provider caches its instance, so this watch does not restart it on
-    // every _AppRoot rebuild (e.g. onboarding completing).
-    ref.watch(autoBackupProvider);
 
     final onboardingAsync = ref.watch(onboardingCompleteProvider);
 

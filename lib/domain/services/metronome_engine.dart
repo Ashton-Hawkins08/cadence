@@ -886,6 +886,14 @@ class MetronomeEngine {
     if (_currentMeasure > current.endMeasure) {
       final nextIndex = _sectionIndex + 1;
       if (nextIndex >= sections.length) {
+        // Emit the true terminal measure while still "playing" before
+        // stop() resets _currentMeasure to 1 and isPlaying to false. Without
+        // this, a page-turn trigger set on the piece's final measure never
+        // fires: stop()'s own emit() is the only state the UI ever sees for
+        // this tick, and it reports isPlaying:false with the counter
+        // already wiped, so ScoreViewerScreen's early-return on
+        // !isPlaying skips evaluating the trigger entirely.
+        _emit();
         stop();
         onPieceComplete?.call();
         return;

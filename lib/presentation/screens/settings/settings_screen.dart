@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cadence/core/constants/app_constants.dart';
 import 'package:cadence/core/theme/app_colors.dart';
 import 'package:cadence/data/repositories/settings_repository.dart';
@@ -9,10 +10,28 @@ import 'package:cadence/presentation/providers/exercises_provider.dart';
 import 'package:cadence/presentation/providers/history_provider.dart';
 import 'package:cadence/presentation/providers/settings_provider.dart';
 import 'package:cadence/presentation/providers/streak_provider.dart';
-import 'cloud_account_section.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  // Rendered by GitHub from the repo root, so these work without any extra
+  // hosting setup (GitHub Pages, a custom domain, etc.) — just markdown
+  // files GitHub serves as readable pages for any public repo.
+  static const _privacyPolicyUrl =
+      'https://github.com/Ashton-Hawkins08/cadence/blob/main/PRIVACY.md';
+  static const _termsUrl =
+      'https://github.com/Ashton-Hawkins08/cadence/blob/main/TERMS.md';
+
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final launched =
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,9 +47,6 @@ class SettingsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // ── Cadence Cloud (hidden when unavailable) ──────────────────
-              const CloudAccountSection(),
-
               // ── Profile ───────────────────────────────────────────────────
               _SectionHeader('Profile'),
               Card(
@@ -148,6 +164,34 @@ class SettingsScreen extends ConsumerWidget {
                       title: const Text('Help & Guide'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _showHelpSheet(context),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Icon(Icons.privacy_tip_outlined,
+                          color: theme.colorScheme.primary),
+                      title: const Text('Privacy Policy'),
+                      trailing: const Icon(Icons.open_in_new, size: 18),
+                      onTap: () => _openUrl(context, _privacyPolicyUrl),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Icon(Icons.description_outlined,
+                          color: theme.colorScheme.primary),
+                      title: const Text('Terms of Service'),
+                      trailing: const Icon(Icons.open_in_new, size: 18),
+                      onTap: () => _openUrl(context, _termsUrl),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Icon(Icons.code_outlined,
+                          color: theme.colorScheme.primary),
+                      title: const Text('Open Source Licenses'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => showLicensePage(
+                        context: context,
+                        applicationName: 'Cadence',
+                        applicationVersion: '2.0.0',
+                      ),
                     ),
                   ],
                 ),
